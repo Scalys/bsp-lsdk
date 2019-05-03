@@ -1,0 +1,22 @@
+# LSDK archive
+flexbuild_lsdk*.tgz
+
+# LSDK sources
+LICENSE
+Makefile
+README.md
+configs
+docker
+docs
+include
+packages
+setup.env
+tools
+
+# LSDK build products
+logs
+build
+packages
+
+# Misc
+.bashrc
