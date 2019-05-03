@@ -1,0 +1,52 @@
+From 46fd8290815ee5cf015d1ad4f763810d89b6f853 Mon Sep 17 00:00:00 2001
+From: Nicholas Pridybailo <nikolai.pridybailo@edality.by>
+Date: Mon, 22 Apr 2019 17:34:32 +0300
+Subject: [PATCH 5/9] trustbox.cfg: set links to Scalys github repositories
+
+---
+ configs/trustbox.cfg | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/configs/trustbox.cfg b/configs/trustbox.cfg
+index c131718..e1e255e 100644
+--- a/configs/trustbox.cfg
++++ b/configs/trustbox.cfg
+@@ -7,7 +7,7 @@ DISTRIB_VERSION=19.03
+ 
+ # set default components for autobuild
+ CONFIG_BUILD_ATF=n
+-CONFIG_BUILD_RCW=n
++CONFIG_BUILD_RCW=y
+ CONFIG_BUILD_UBOOT=y
+ CONFIG_BUILD_UEFI=n
+ CONFIG_BUILD_LINUX=y
+@@ -112,12 +112,12 @@ linux_config_list_arm32v8="multi_v7_defconfig multi_v7_lpae.config multi_v8.conf
+ linux_config_list_arm32v7="multi_v7_defconfig multi_v7_lpae.config lsdk.config"
+ 
+ #kernel git repository
+-linux_repo_url=http://192.168.42.170/prni/linux-test.git
+-linux_repo_branch=LSDK-19.03-V4.19t
++linux_repo_url=https://github.com/Scalys/linux-qoriq.git
++linux_repo_branch=trustbox-1903
+ 
+ # uboot git repository
+-u_boot_repo_url=http://192.168.42.170/prni/uboot-test.git
+-u_boot_repo_branch=LSDK-19.03t
++u_boot_repo_url=https://github.com/Scalys/u-boot-qoriq.git
++u_boot_repo_branch=trustbox-1903
+ 
+ #linux modules git repository
+ lttng_modules_repo_url=git://git.lttng.org/lttng-modules.git
+@@ -126,7 +126,8 @@ cryptodev_linux_repo_tag=LSDK-19.03
+ 
+ # firmware git repositories
+ rcw_repo=rcw
+-rcw_repo_tag=LSDK-19.03
++rcw_repo_url=https://github.com/Scalys/rcw.git
++rcw_repo_branch=trustbox-1903
+ atf_repo_tag=LSDK-19.03
+ mc_utils_repo_tag=LSDK-19.03
+ qoriq_mc_binary_repo_url=https://github.com/nxp/qoriq-mc-binary.git
+-- 
+2.20.1
+

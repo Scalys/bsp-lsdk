@@ -1,0 +1,28 @@
+From b3583a7af15e2a85647e938059bbdcd0675bb8ae Mon Sep 17 00:00:00 2001
+From: Nicholas Pridybailo <nikolai.pridybailo@edality.by>
+Date: Tue, 23 Apr 2019 17:49:58 +0300
+Subject: [PATCH 7/9] trustbox: Change build rules in accordance with actual
+ u-boot package
+
+---
+ packages/firmware/Makefile | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/packages/firmware/Makefile b/packages/firmware/Makefile
+index e0e75cc..5b863cb 100644
+--- a/packages/firmware/Makefile
++++ b/packages/firmware/Makefile
+@@ -58,7 +58,9 @@ else
+ 	 else \
+ 	     brdmsk=*$(MACHINE)*; \
+ 	 fi && \
+-	 if [ -z "$(BOOTTYPE)" ]; then \
++	 if [ $(MACHINE) = trustbox ]; then \
++	     $(call build-uboot-target,trustbox_defconfig) \
++	 elif [ -z "$(BOOTTYPE)" ]; then \
+ 	     $(call fbprint_e,"please specify -b boottype parameter for u-boot on $(MACHINE)"); \
+ 	     exit; \
+ 	 else \
+-- 
+2.20.1
+

@@ -1,0 +1,470 @@
+From c72e12f0c82546a48f0aa947f81cdd9e56e1345d Mon Sep 17 00:00:00 2001
+From: Nicholas Pridybailo <nikolai.pridybailo@edality.by>
+Date: Tue, 9 Apr 2019 15:24:34 +0300
+Subject: [PATCH 3/9] Build rules for firmware and kernel, board renamed to
+ Trustbox
+
+---
+ configs/board/trustbox/manifest          | 24 ++++++
+ configs/linux/linux_arm32_LS.its         |  8 +-
+ configs/linux/linux_arm64_LS.its         | 12 +--
+ configs/{grapeboard.cfg => trustbox.cfg} | 99 +++++++++++++++++++++---
+ packages/firmware/Makefile               |  5 +-
+ packages/linux/Makefile                  |  5 +-
+ tools/flex-builder                       | 52 +++++++++----
+ 7 files changed, 167 insertions(+), 38 deletions(-)
+ create mode 100644 configs/board/trustbox/manifest
+ rename configs/{grapeboard.cfg => trustbox.cfg} (60%)
+
+diff --git a/configs/board/trustbox/manifest b/configs/board/trustbox/manifest
+new file mode 100644
+index 0000000..9ea8b19
+--- /dev/null
++++ b/configs/board/trustbox/manifest
+@@ -0,0 +1,24 @@
++# [general]
++machine=trustbox
++
++# [linux, dtb, rfs]
++kernel_img=build/linux/kernel/arm64/LS/Image
++device_tree=build/linux/kernel/arm64/LS/trustbox.dtb
++ramdiskrfs=packages/rfs/ramdiskrfs/ramdisk_rootfs_arm64.ext4.gz
++kernelrfs_continuous=y
++
++# [firmware_images]
++rcw_qspi=build/firmware/rcw/ls1012afrdm/N_SSNP_3305/rcw_800.bin.swapped
++uboot_qspiboot=build/firmware/u-boot/ls1012afrdm/uboot_ls1012afrdm_qspi.bin
++atf_bl2_qspi=build/firmware/atf/ls1012afrdm/bl2_qspi.pbl
++atf_bl2_qspi_sec=build/firmware/atf/ls1012afrdm/bl2_qspi_sec.pbl
++atf_fip_uboot=build/firmware/atf/ls1012afrdm/fip_uboot.bin
++atf_fip_uboot_sec=build/firmware/atf/ls1012afrdm/fip_uboot_sec.bin
++pfe_fw=build/firmware/qoriq-engine-pfe-bin/ls1012a/u-boot/pfe_fw_sbl.itb
++pfe_kernel=build/firmware/qoriq-engine-pfe-bin/ls1012a/slow_path/ppfe*.elf
++secureboot_headers=null
++
++# [distro autoboot script]
++uboot_scr=build/firmware/u-boot/ls1012ardb/ls1012ardb_boot.scr
++bootscript_dec=build/firmware/u-boot/ls1012ardb/ls1012ardb_dec_boot.scr
++bootscript_enforce=build/firmware/u-boot/ls1012ardb/ls1012ardb_enforce_boot.scr
+diff --git a/configs/linux/linux_arm32_LS.its b/configs/linux/linux_arm32_LS.its
+index 3e80357..ea3d085 100644
+--- a/configs/linux/linux_arm32_LS.its
++++ b/configs/linux/linux_arm32_LS.its
+@@ -80,9 +80,9 @@
+                         load = <0x9ffe0000>;
+                 };
+ 
+-                grapeboard-dtb {
++                trustbox-dtb {
+                         description = "Flattened Device Tree blob";
+-                        data = /incbin/("../../build/linux/kernel/arm32/LS/grapeboard.dtb");
++                        data = /incbin/("../../build/linux/kernel/arm32/LS/trustbox.dtb");
+                         type = "flat_dt";
+                         arch = "arm";
+                         compression = "none";
+@@ -127,10 +127,10 @@
+                         ramdisk = "initrd";
+                 };
+ 
+-                grapeboard {
++                trustbox {
+                         description = "Boot Linux kernel";
+                         kernel = "kernel-v8";
+-                        fdt = "grapeboard-dtb";
++                        fdt = "trustbox-dtb";
+                         ramdisk = "initrd";
+                 };
+ 
+diff --git a/configs/linux/linux_arm64_LS.its b/configs/linux/linux_arm64_LS.its
+index f44d73f..697f94c 100644
+--- a/configs/linux/linux_arm64_LS.its
++++ b/configs/linux/linux_arm64_LS.its
+@@ -143,9 +143,9 @@
+ 			};
+ 		};
+ 
+-		grapeboard-dtb {
+-			description = "grapeboard-dtb";
+-			data = /incbin/("../../build/linux/kernel/arm64/LS/grapeboard.dtb");
++		trustbox-dtb {
++			description = "trustbox-dtb";
++			data = /incbin/("../../build/linux/kernel/arm64/LS/trustbox.dtb");
+ 			type = "flat_dt";
+ 			arch = "arm64";
+ 			os = "linux";
+@@ -214,11 +214,11 @@
+ 			fdt = "lx2160ardb-dtb";
+ 		};
+ 
+-		grapeboard {
+-			description = "config for grapeboard";
++		trustbox {
++			description = "config for trustbox";
+ 			kernel = "kernel";
+ 			ramdisk = "initrd";
+-			fdt = "grapeboard-dtb";
++			fdt = "trustbox-dtb";
+ 		};
+ 	};
+ };
+diff --git a/configs/grapeboard.cfg b/configs/trustbox.cfg
+similarity index 60%
+rename from configs/grapeboard.cfg
+rename to configs/trustbox.cfg
+index 043f6df..920dd4a 100644
+--- a/configs/grapeboard.cfg
++++ b/configs/trustbox.cfg
+@@ -5,11 +5,88 @@ GIT_REPOSITORY_URL="https://source.codeaurora.org/external/qoriq/qoriq-component
+ DISTRIB_NAME="NXP LSDK"
+ DISTRIB_VERSION=19.03
+ 
+-# default Layerscape ARM machine list for autobuild
+-CONFIG_MACHINE_GRAPEBOARD=y
++# set default components for autobuild
++CONFIG_BUILD_ATF=n
++CONFIG_BUILD_RCW=n
++CONFIG_BUILD_UBOOT=y
++CONFIG_BUILD_UEFI=n
++CONFIG_BUILD_LINUX=y
++CONFIG_BUILD_RESTOOL=y
++CONFIG_BUILD_FLIB=y
++CONFIG_BUILD_FMLIB=y
++CONFIG_BUILD_FMC=y
++CONFIG_BUILD_SPC=y
++CONFIG_BUILD_CST=y
++CONFIG_BUILD_OPENSSL=y
++CONFIG_BUILD_DPDK=y
++CONFIG_BUILD_VPP=n
++CONFIG_BUILD_OVS_DPDK=y
++CONFIG_BUILD_PKTGEN_DPDK=y
++CONFIG_BUILD_AIOPSL=y
++CONFIG_BUILD_CEETM=y
++CONFIG_BUILD_DCE=y
++CONFIG_BUILD_ETH_CONFIG=y
++CONFIG_BUILD_GPP_AIOPTOOL=y
++CONFIG_BUILD_CRYPTODEV_LINUX=y
++CONFIG_BUILD_LTTNG=n
++CONFIG_BUILD_QBMAN_USERSPACE=y
++CONFIG_BUILD_PTPD=y
++CONFIG_BUILD_CRCONF=y
++CONFIG_BUILD_IPERF=y
++CONFIG_BUILD_OPENSTACK_NOVA=n
++CONFIG_BUILD_OPTEE=n
++CONFIG_BUILD_LIBPKCS11=n
++CONFIG_BUILD_SECURE_OBJ=n
++CONFIG_BUILD_EDGESCALE=n
++
++# default i.MX ARM machine list for autobuild
++BUILD_IMX_IMAGE=n
++CONFIG_MACHINE_MX6QSABRESD=y
++CONFIG_MACHINE_MX8MQEVK=y
++
++# default PowerPC machine list for autobuild
++CONFIG_MACHINE_T1024RDB=n
++CONFIG_MACHINE_T2080RDB=n
++CONFIG_MACHINE_T4240RDB=n
+ 
+ # machine list with UEFI support
+-uefi_machine_list="grapeboard"
++uefi_machine_list="ls1043ardb ls1046ardb ls2088ardb lx2160ardb trustbox"
++
++# machine list with OPTEE support
++optee_machine_list="ls1043ardb ls1046ardb ls1012ardb ls1012afrwy ls1088ardb ls1088ardb_pb ls2088ardb lx2160ardb trustbox"
++
++# default Layerscape ARM machine list for autobuild
++CONFIG_MACHINE_LS1012ARDB=n
++CONFIG_MACHINE_LS1012AFRDM=n
++CONFIG_MACHINE_LS1012AFRWY=n
++CONFIG_MACHINE_LS1021ATWR=n
++CONFIG_MACHINE_LS1043ARDB=n
++CONFIG_MACHINE_LS1043AQDS=n
++CONFIG_MACHINE_LS1046ARDB=n
++CONFIG_MACHINE_LS1046AQDS=n
++CONFIG_MACHINE_LS1088ARDB=n
++CONFIG_MACHINE_LS1088AQDS=n
++CONFIG_MACHINE_LS1088ARDB_PB=n
++CONFIG_MACHINE_LS2088ARDB=n
++CONFIG_MACHINE_LS2088AQDS=n
++CONFIG_MACHINE_LX2160ARDB=n
++CONFIG_MACHINE_LX2160AQDS=n
++CONFIG_MACHINE_TRUSTBOX=y
++
++# set default build options
++CONFIG_EDGESCALE_SECURE_MODE=n
++CONFIG_FUSE_PROVISIONING=n
++BUILD_GUESTRFS=n
++BUILD_PERF=y
++BUILD_LAYERSCAPE_IMAGE=y
++BUILD_DUAL_KERNEL=n
++BUILD_UBUNTU_LITE=n
++BUILD_BUILDROOT_RFS=n
++UPDATE_REPO_PER_COMMIT=n
++UPDATE_REPO_PER_TAG=n
++INSTALL_FLASH_IMAGES=n
++KEEP_LEGACY_PKG=y
++
+ 
+ # set default distro Ubuntu/Debian codename
+ distro_codename=bionic
+@@ -19,7 +96,7 @@ fbdockerrepo=fbubuntu
+ fbdockerimgversion=18.04
+ 
+ # component repository list for autobuild
+-firmware_repo_list="atf u-boot rcw qoriq-uefi-binary qoriq-fm-ucode mc-utils qoriq-mc-binary qoriq-qe-ucode qoriq-firmware-cortina qoriq-firmware-inphi qoriq-engine-pfe-bin ddr-phy-binary"
++firmware_repo_list="atf u-boot qoriq-uefi-binary qoriq-fm-ucode mc-utils qoriq-mc-binary qoriq-qe-ucode qoriq-firmware-cortina qoriq-firmware-inphi qoriq-engine-pfe-bin ddr-phy-binary"
+ linux_repo_list="linux cryptodev-linux lttng-modules"
+ apps_repo_list="restool flib fmlib fmc spc dpdk vpp pktgen-dpdk ovs-dpdk openssl gpp-aioptool cst aiopsl ptpd ceetm dce qbman_userspace eth-config crconf iperf optee_os optee_client optee_test secure_obj libpkcs11 qoriq-edgescale-eds qoriq-eds-kubelet qoriq-eds-bootstrap openstack-nova"
+ 
+@@ -28,16 +105,17 @@ default_uboot_tree=u-boot
+ default_linux_tree=linux
+ 
+ # default linux config list
+-linux_config_list_arm64="defconfig lsdk.config"
+-linux_config_list_arm32v8="multi_v7_defconfig multi_v7_lpae.config multi_v8.config lsdk.config"
++linux_config_list_arm64="defconfig lsdk.config trustbox.config"
++linux_config_list_arm32v8="multi_v7_defconfig multi_v7_lpae.config multi_v8.config lsdk.config trustbox.config"
+ linux_config_list_arm32v7="multi_v7_defconfig multi_v7_lpae.config lsdk.config"
+ 
+ #kernel git repository
+-linux_repo_url=http://192.168.42.170/lsdk/linux.git
+-linux_repo_tag=LSDK-19.03-gb-V4.19
++linux_repo_url=http://192.168.42.170/prni/linux-test.git
++linux_repo_branch=LSDK-19.03-V4.19t
+ 
+ # uboot git repository
+-u_boot_repo_url=http://192.168.42.170/lsdk/uboot.git
++u_boot_repo_url=http://192.168.42.170/prni/uboot-test.git
++u_boot_repo_branch=LSDK-19.03t
+ 
+ #linux modules git repository
+ lttng_modules_repo_url=git://git.lttng.org/lttng-modules.git
+@@ -47,7 +125,6 @@ cryptodev_linux_repo_tag=LSDK-19.03
+ # firmware git repositories
+ rcw_repo=rcw
+ rcw_repo_tag=LSDK-19.03
+-u_boot_repo_tag=LSDK-19.03
+ atf_repo_tag=LSDK-19.03
+ mc_utils_repo_tag=LSDK-19.03
+ qoriq_mc_binary_repo_url=https://github.com/nxp/qoriq-mc-binary.git
+@@ -108,4 +185,4 @@ buildroot_repo_url=git://git.buildroot.net/buildroot.git
+ buildroot_repo_branch=2018.11.x
+ ramdiskrfs_url=https://www.nxp.com/lgfiles/sdk/lsdk
+ ruby_src_url=https://cache.ruby-lang.org/pub/ruby/ruby-2.5.1.tar.gz
+-iproute2_src_url=https://mirrors.edge.kernel.org/pub/linux/utils/net/iproute2/iproute2-4.15.0.tar.gz
+\ No newline at end of file
++iproute2_src_url=https://mirrors.edge.kernel.org/pub/linux/utils/net/iproute2/iproute2-4.15.0.tar.gz
+diff --git a/packages/firmware/Makefile b/packages/firmware/Makefile
+index 998df46..e0e75cc 100644
+--- a/packages/firmware/Makefile
++++ b/packages/firmware/Makefile
+@@ -33,6 +33,8 @@ else
+ 	@$(call fbprint_b,"uboot for $(MACHINE)")
+ 	@if [ $(MACHINE) = ls2088ardb -o $(MACHINE) = ls2088aqds ]; then \
+ 	     brdmsk=`echo $(MACHINE)* | sed s/88/8?/`; \
++	 elif [ $(MACHINE) = trustbox ]; then \
++	     brdmsk=*trustbox*; \
+ 	 elif echo $(MACHINE) | grep ^[p,t,P,T].* 1>/dev/null; then \
+ 	     brdmsk=*`tr '[a-z]' '[A-Z]' <<< $(MACHINE)`*; \
+ 	 elif [ $(MACHINE) = ls1088ardb_pb ]; then \
+@@ -79,6 +81,7 @@ endif
+ 
+ define build-uboot-target
+ 	if echo $1 | grep -E 'ls1021atwr|^mx' 1>/dev/null;  then export ARCH=arm; export CROSS_COMPILE=arm-linux-gnueabihf-; dtbstr=-dtb; \
++	elif echo $1 | grep trustbox 1>/dev/null; then export ARCH=arm64;export CROSS_COMPILE=aarch64-linux-gnu-; dtbstr=-dtb; \
+ 	elif echo $1 | grep ^[p,t,P,T].* 1>/dev/null;  then export ARCH=powerpc; export CROSS_COMPILE=powerpc-linux-; \
+ 	     if [ ! -f $(FBDIR)/build/rfs/rootfs_buildroot_ppc32_tiny/host/bin/powerpc-linux-gcc ]; then \
+ 	         flex-builder -i mktoolchain -a ppc32 -f $(CONFIGLIST); fi; \
+@@ -182,7 +185,7 @@ ifeq ($(CONFIG_BUILD_ATF), y)
+ 	 else \
+ 	     mkdir -p $(FBDIR)/build/firmware/atf/$(MACHINE) && \
+ 	     if [ $(MACHINE) = ls1088ardb_pb ]; then platform=ls1088ardb; else platform=$(MACHINE); fi && \
+-	     if [ $$platform = ls1012ardb -o $$platform = ls1012afrwy -o $$platform = ls1043ardb -o $$platform = ls1046ardb ]; then \
++	     if [ $$platform = ls1012ardb -o $$platform = ls1012afrwy -o $$platform = ls1043ardb -o $$platform = ls1046ardb]; then \
+ 		 chassistype=ls104x_1012; \
+ 	     else \
+ 		 chassistype=ls2088_1088; \
+diff --git a/packages/linux/Makefile b/packages/linux/Makefile
+index 50425a8..cbf1d3b 100644
+--- a/packages/linux/Makefile
++++ b/packages/linux/Makefile
+@@ -83,14 +83,15 @@ ifeq ($(CONFIG_BUILD_LINUX), y)
+ 	tar czf $(FBDIR)/build/images/linux_headers_$(SOCFAMILY)_$(DESTARCH)_$$curbrch.tgz $$opdir/usr/include && \
+ 	if [ $(DESTARCH) = arm64 ]; then \
+ 	    cp $$opdir/arch/$$locarch/boot/Image* \
+-	    $(FBDIR)/build/linux/$(KERNEL_TREE)/$(DESTARCH)/$(SOCFAMILY); \
++		$(FBDIR)/build/linux/$(KERNEL_TREE)/$(DESTARCH)/$(SOCFAMILY) && \
++		mkimage -A $(DESTARCH) -O linux -T kernel -C gzip -a 0x80080000 -e 0x80080000 -n Linux -d $(FBDIR)/build/linux/$(KERNEL_TREE)/$(DESTARCH)/$(SOCFAMILY)/Image.gz $(FBDIR)/build/linux/$(KERNEL_TREE)/$(DESTARCH)/$(SOCFAMILY)/uImage; \
+ 	fi && \
+ 	if [ $(DESTARCH) = arm32 ]; then \
+ 	    cp -f $$opdir/arch/$$locarch/boot/uImage \
+ 	    $(FBDIR)/build/linux/$(KERNEL_TREE)/$(DESTARCH)/$(SOCFAMILY)/uImage$$extname; \
+ 	    cp -f $$opdir/arch/$$locarch/boot/zImage $(FBDIR)/build/linux/$(KERNEL_TREE)/$(DESTARCH)/$(SOCFAMILY)/zImage$$extname; \
+ 	fi && \
+-	ls $$opdir/arch/$$locarch/boot/$$dtbdir/$$dtbstr | grep -iE 'rdb|frdm|frwy|twr|qds|ds|imx' | xargs -I {} cp {} \
++	ls $$opdir/arch/$$locarch/boot/$$dtbdir/$$dtbstr | grep -iE 'rdb|frdm|frwy|twr|qds|ds|imx|trustbox' | xargs -I {} cp {} \
+ 	$(FBDIR)/build/linux/$(KERNEL_TREE)/$(DESTARCH)/$(SOCFAMILY) && \
+ 	ls -l $(FBDIR)/build/linux/$(KERNEL_TREE)/$(DESTARCH)/$(SOCFAMILY) && \
+ 	$(call fbprint_d,"$(KERNEL_TREE) $$curbrch in $(FBDIR)/build/linux/$(KERNEL_TREE)/$(DESTARCH)/$(SOCFAMILY)")
+diff --git a/tools/flex-builder b/tools/flex-builder
+index 8ccca6f..e35759a 100755
+--- a/tools/flex-builder
++++ b/tools/flex-builder
+@@ -181,7 +181,7 @@ generate_qoriq_composite_firmware() {
+ 	fi
+     fi
+ 
+-    if [ $DESTARCH = arm32 ] && [ $1 = ls1043ardb -o $1 = ls1046ardb -o $1 = ls1012ardb -o $1 = ls1012afrwy ]; then
++    if [ $DESTARCH = arm32 ] && [ $1 = ls1043ardb -o $1 = ls1046ardb -o $1 = ls1012ardb -o $1 = ls1012afrwy -o $1 = trustbox]; then
+ 	echo $distroboot | sed -e 's/Image/uImage.v8/g' -e 's/booti/bootm/g' >> $FBDIR/$uboot_scr
+ 	kernel_img=`echo $kernel_img | sed  -e 's/arm64/arm32/g' -e 's/Image/uImage.v8/g'`
+     fi
+@@ -637,7 +637,7 @@ generate_distro_bootscr() {
+ 	    if [ "$ENCAP" = "y" ] ; then
+ 		if [ $bootscript_dec != null ] ; then
+ 		    echo $securevalidate_dec > $bootscript_dec.tmp
+-		    if [ $DESTARCH = arm32 ] && [ $1 = ls1043ardb -o $1 = ls1046ardb -o $1 = ls1012ardb -o $1 = ls1012afrwy ]; then
++		    if [ $DESTARCH = arm32 ] && [ $1 = ls1043ardb -o $1 = ls1046ardb -o $1 = ls1012ardb -o $1 = ls1012afrwy -o $1 = trustbox]; then
+ 			echo $distroboot | sed -e 's/Image/uImage.v8/g' -e 's/booti/bootm/g' >> $FBDIR/$uboot_scr.tmp
+ 			sed -i 's/booti/bootm/g' $bootscript_dec.tmp
+ 		    else
+@@ -651,7 +651,7 @@ generate_distro_bootscr() {
+ 	    elif [ "$IMA_EVM" = "y" ] ; then
+ 		if [ $bootscript_enforce != null ] ; then
+ 		   echo $securevalidate_enforce > $bootscript_enforce.tmp
+-		   if [ $DESTARCH = arm32 ] && [ $1 = ls1043ardb -o $1 = ls1046ardb -o $1 = ls1012ardb -o $1 = ls1012afrwy ]; then
++		   if [ $DESTARCH = arm32 ] && [ $1 = ls1043ardb -o $1 = ls1046ardb -o $1 = ls1012ardb -o $1 = ls1012afrwy -o $1 = trustbox]; then
+ 			echo $distroboot_ima | sed -e 's/Image/uImage.v8/g' -e 's/booti/bootm/g' >> $FBDIR/$uboot_scr.tmp
+ 			sed -i 's/booti/bootm/g' $bootscript_enforce.tmp
+ 		    else
+@@ -668,7 +668,7 @@ generate_distro_bootscr() {
+ 	    fi
+ 	fi
+ 
+-	if [ $DESTARCH = arm32 ] && [ $1 = ls1043ardb -o $1 = ls1046ardb -o $1 = ls1012ardb -o $1 = ls1012afrwy ]; then
++	if [ $DESTARCH = arm32 ] && [ $1 = ls1043ardb -o $1 = ls1046ardb -o $1 = ls1012ardb -o $1 = ls1012afrwy -o $1 = trustbox]; then
+ 	    if [ "$IMA_EVM" = "y" ] ; then
+ 		echo $distroboot_ima | sed -e 's/Image/uImage.v8/g' -e 's/booti/bootm/g' >> $FBDIR/$uboot_scr.tmp
+ 	    else
+@@ -837,9 +837,9 @@ generate_bootpartition_tarball() {
+     # install flash images to bootpartition
+     if [ "$INSTALL_FLASH_IMAGES" = "y" -a $SOCFAMILY = LS ]; then
+ 	if [ $DESTARCH = arm64 -a $MACHINE = all ]; then
+-	    brdlist="ls1012ardb ls1012afrwy ls1043ardb ls1046ardb ls1088ardb ls2088ardb lx2160ardb"
++	    brdlist="ls1012ardb ls1012afrwy ls1043ardb ls1046ardb ls1088ardb ls2088ardb lx2160ardb trustbox"
+ 	elif [ $DESTARCH = arm32 -a $MACHINE = all ]; then
+-	    brdlist="ls1021atwr ls1012ardb ls1012afrwy ls1043ardb ls1046ardb"
++	    brdlist="ls1021atwr ls1012ardb ls1012afrwy ls1043ardb ls1046ardb trustbox"
+ 	elif [ $DESTARCH = ppc64 -a $MACHINE = all ]; then
+ 	     brdlist="t1024rdb t2080rdb t4240rdb"
+ 	elif [ $MACHINE != all ]; then
+@@ -892,8 +892,14 @@ generate_bootpartition_tarball() {
+ 	    if [ $brd = ls1012ardb ]; then
+ 		if [ ! -f $FBDIR/build/firmware/qoriq-engine-pfe-bin/ls1012a/u-boot/pfe_fw_sbl.itb ]; then
+ 		    flex-builder -c qoriq-engine-pfe-bin -f $CONFIGLIST
+-		fi
++		fi	
+ 		cp -f build/firmware/qoriq-engine-pfe-bin/ls1012a/u-boot/pfe_fw_sbl.itb $bootpartdir/flash_images
++		fi
++		if [ $brd = trustbox ]; then
++		if [ ! -f $FBDIR/build/firmware/qoriq-engine-pfe-bin/trustbox/u-boot/pfe_fw_sbl.itb ]; then
++		    flex-builder -c qoriq-engine-pfe-bin -f $CONFIGLIST
++		fi	
++		cp -f build/firmware/qoriq-engine-pfe-bin/trustbox/u-boot/pfe_fw_sbl.itb $bootpartdir/flash_images
+ 	    fi
+ 	    if [ $brd = ls1088ardb -o $brd = ls2088ardb -o $brd = lx2160ardb ]; then
+ 		if [ ! -d $FBDIR/build/firmware/mc-utils/config ]; then
+@@ -1327,7 +1333,7 @@ merge_components() {
+ 	generate_distro_rfs
+     fi
+ 
+-    # install apps components
++	# install apps components
+     if [ $DISTROTYPE = ubuntu -a "$DISTROSCALE" = lite ] && [ $SOCFAMILY = LS ]; then
+ 	if [ $DESTARCH = arm64 ]; then
+ 	    if [ ! -f $DESTDIR/usr/local/bin/restool ]; then
+@@ -1369,7 +1375,7 @@ merge_components() {
+     fi
+ 
+     # install PFE firmware to $RFSDIR/lib/firmware
+-    if [ $CONFIG_MACHINE_LS1012ARDB = y -o $CONFIG_MACHINE_LS1012AFRWY = y ] && [ $SOCFAMILY = LS ]; then
++    if [ $CONFIG_MACHINE_LS1012ARDB = y -o $CONFIG_MACHINE_LS1012AFRWY = y -o $CONFIG_MACHINE_TRUSTBOX = y ] && [ $SOCFAMILY = LS ]; then
+ 	if [ ! -f $FBDIR/build/firmware/qoriq-engine-pfe-bin/ls1012a/slow_path/ppfe_class_ls1012a.elf ]; then
+ 	    flex-builder -c qoriq-engine-pfe-bin -f $CONFIGLIST
+ 	fi
+@@ -1382,6 +1388,16 @@ merge_components() {
+ 	cd $FBDIR
+     fi
+ 
++	#install kernel, and dtb to $RFSDIR/boot/
++	if [ $CONFIG_MACHINE_TRUSTBOX = y ]; then
++		if [ ! -f $FBDIR/build/linux/$KERNEL_TREE/$DESTARCH/$SOCFAMILY/trustbox.dtb -o ! -f $FBDIR/build/linux/$KERNEL_TREE/$DESTARCH/$SOCFAMILY/uImage ]; then
++			flex-builder -c linux -a $DESTARCH -m trustbox
++		fi
++		sudo mkdir -p $RFSDIR/boot/
++		sudo cp -f $FBDIR/build/linux/$KERNEL_TREE/$DESTARCH/$SOCFAMILY/uImage $RFSDIR/boot/
++		sudo cp -f $FBDIR/build/linux/$KERNEL_TREE/$DESTARCH/$SOCFAMILY/trustbox.dtb $RFSDIR/boot/
++	fi
++
+     # install linux headers
+     if [ -d $FBDIR/build/linux/kernel/$DESTARCH/$SOCFAMILY/output -a -d $RFSDIR/usr/include ]; then
+ 	curbrch=`cd $KERNEL_PATH && git branch | grep ^* | cut -d' ' -f2 && cd $FBDIR`
+@@ -1579,7 +1595,7 @@ generate_composite_fw_uboot() {
+ 	for brd in $machinelist; do
+ 	    if [ $DESTARCH = arm64 -a $brd = ls1021atwr ]; then continue; fi
+ 	    if [ $DESTARCH = arm32 -a $brd != ls1021atwr -a $brd != ls1043ardb -a $brd != ls1046ardb \
+-	       -a $brd != ls1012ardb -a $brd != ls1012afrwy ]; then continue; fi
++	       -a $brd != ls1012ardb -a $brd != ls1012afrwy -a $brd != trustbox ]; then continue; fi
+ 	    for boottype in $boottypelist; do
+ 		if [ "$1" = "secureboot" ]; then
+ 		    flex-builder -i mkfw -m $brd -b $boottype -B uboot -s -a $DESTARCH -f $CONFIGLIST
+@@ -1863,7 +1879,7 @@ secure_sign_image() {
+     cp $FBDIR/$device_tree $FBDIR/packages/apps/cst/uImage.dtb && echo "Copying dtb"
+     cp $FBDIR/build/images/lsdk_linux_${DESTARCH}_${SOCFAMILY}_tiny.itb $FBDIR/packages/apps/cst/kernel.itb && echo "Copying kernel_itb"
+     
+-    if [ $1 = ls1043ardb -o $1 = ls1046ardb -o $1 = ls1012ardb -o $1 = ls1012afrwy ] && [ $DESTARCH = arm32 -a $SOCFAMILY = LS ]; then
++    if [ $1 = ls1043ardb -o $1 = ls1046ardb -o $1 = ls1012ardb -o $1 = ls1012afrwy -o $1 = trustbox ] && [ $DESTARCH = arm32 -a $SOCFAMILY = LS ]; then
+ 	kernelimg=$FBDIR/build/linux/kernel/arm32/LS/uImage.v8
+     else
+ 	kernelimg=$FBDIR/$kernel_img
+@@ -2280,11 +2296,14 @@ do
+ 		;;
+ 	-f|--cfgfile)
+ 		CONFIGLIST=$2
++		if [ "$MACHINE" = "trustbox" ]; then
++			CONFIGLIST=trustbox.cfg
++		fi
+ 		if [ ! -f $FBDIR/configs/$CONFIGLIST ]; then
+ 		    fbprint_e "$FBDIR/configs/$CONFIGLIST does not exist!"
+ 		    exit 1
+ 		fi
+-		echo "CONFIGLIST: $2"
++		echo "CONFIGLIST: $CONFIGLIST"
+ 		shift
+ 		;;
+ 	-r|--rootfs)
+@@ -2364,7 +2383,12 @@ fi
+ if [ "$MACHINE" = "ls1021atwr" ]; then
+     DESTARCH=arm32
+ fi
+-
++if [ "$MACHINE" = "trustbox" ]; then
++	if [ -z $CONFIGLIST ]; then
++		CONFIGLIST=trustbox.cfg
++		echo "CONFIGLIST: $CONFIGLIST"
++	fi
++fi
+ if [ "$MACHINE" = "imx6qsabresd" -o "$MACHINE" = "imx6sllevk" ] ; then
+     DESTARCH=arm32
+     PORTFOLIO=imx6
+@@ -2399,7 +2423,7 @@ if [ -z "$manifest" ]; then
+     elif [ -z "$MACHINE" -o $MACHINE = all ] && [ $DESTARCH = arm32 ]; then
+ 	manifest=$FBDIR/configs/board/ls1021atwr/manifest
+     elif [ -f $FBDIR/configs/board/ls1043ardb/manifest ]; then
+-	manifest=$FBDIR/configs/board/ls1043ardb/manifest
++		manifest=$FBDIR/configs/board/ls1043ardb/manifest
+     else
+ 	fbprint_e "not found manifest file for $MACHINE"
+ 	exit 1
+-- 
+2.20.1
+
