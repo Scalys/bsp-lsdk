@@ -1,0 +1,40 @@
+From 4f9624b1f88bd04489ec80b1bd06f8cd6e6421ec Mon Sep 17 00:00:00 2001
+From: Dmitry Lavnikevich <dmitry.lavnikevich@edality.by>
+Date: Mon, 6 May 2019 10:45:48 +0300
+Subject: Rename pfe.itb update filename back to pfe_fw_sbl.itb
+
+Needed for compatibility with the previous release.
+---
+ configs/trustbox.cfg | 2 +-
+ tools/flex-builder   | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/configs/trustbox.cfg b/configs/trustbox.cfg
+index 4b34328..4314b4d 100644
+--- a/configs/trustbox.cfg
++++ b/configs/trustbox.cfg
+@@ -119,7 +119,7 @@ linux_repo_commit=bf82c1de7c34f607295e383a716cabce576afa00
+ # uboot git repository
+ u_boot_repo_url=https://github.com/Scalys/u-boot-qoriq.git
+ u_boot_repo_branch=trustbox-1903
+-u_boot_repo_commit=b5e16e4af0620cde5cebe5429d936970a73cb010
++u_boot_repo_commit=6796103d3f20bdaac19e1d36d2b222d08a88ea2c
+ 
+ #linux modules git repository
+ lttng_modules_repo_url=git://git.lttng.org/lttng-modules.git
+diff --git a/tools/flex-builder b/tools/flex-builder
+index b907310..37db011 100755
+--- a/tools/flex-builder
++++ b/tools/flex-builder
+@@ -160,7 +160,7 @@ generate_trustbox_composite_firmware() {
+ 
+ 	cp ${rcwimg} ${build_dir}/components/rcw.bin
+ 	cp ${bootloaderimg} ${build_dir}/components/u-boot.bin
+-	cp ${pfe_fw} ${build_dir}/components/pfe.itb
++	cp ${pfe_fw} ${build_dir}/components/pfe_fw_sbl.itb
+ 	cp ${ppa_fw} ${build_dir}/components/ppa.itb
+ 
+ 	local block_size=256
+-- 
+2.20.1
+
