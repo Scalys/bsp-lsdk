@@ -1,7 +1,7 @@
 From 46fd8290815ee5cf015d1ad4f763810d89b6f853 Mon Sep 17 00:00:00 2001
 From: Nicholas Pridybailo <nikolai.pridybailo@edality.by>
 Date: Mon, 22 Apr 2019 17:34:32 +0300
-Subject: [PATCH 5/9] trustbox.cfg: set links to Scalys github repositories
+Subject: trustbox.cfg: set links to Scalys github repositories
 
 ---
  configs/trustbox.cfg | 13 +++++++------

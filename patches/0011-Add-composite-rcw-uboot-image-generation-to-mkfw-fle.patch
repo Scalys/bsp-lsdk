@@ -1,8 +1,7 @@
 From 9170f28a0f6229fc5c4a9d147fab61db30ebecbf Mon Sep 17 00:00:00 2001
 From: Dmitry Lavnikevich <dmitry.lavnikevich@edality.by>
 Date: Mon, 6 May 2019 10:11:30 +0300
-Subject: [PATCH] Add composite rcw-uboot image generation to mkfw flex-builder
- command
+Subject: Add composite rcw-uboot image generation to mkfw flex-builder command
 
 ---
  tools/flex-builder | 28 +++++++++++++++++-----------

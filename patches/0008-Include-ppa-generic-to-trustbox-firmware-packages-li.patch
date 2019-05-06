@@ -1,7 +1,7 @@
 From 805ae813a39894a11b9cdf2bd8ed5ae2c67e84f9 Mon Sep 17 00:00:00 2001
 From: Nicholas Pridybailo <nikolai.pridybailo@edality.by>
 Date: Wed, 24 Apr 2019 15:41:32 +0300
-Subject: [PATCH 8/9] Include ppa-generic to trustbox firmware packages list
+Subject: Include ppa-generic to trustbox firmware packages list
 
 ---
  Makefile                        |  2 +-

@@ -1,7 +1,7 @@
 From 4af2f5c6a8bfcf702097e991f4ecfc8197e97ca3 Mon Sep 17 00:00:00 2001
 From: Nicholas Pridybailo <nikolai.pridybailo@edality.by>
 Date: Tue, 23 Apr 2019 17:03:32 +0300
-Subject: [PATCH 6/9] Add packages directory to .gitignore
+Subject: Add packages directory to .gitignore
 
 ---
  .gitignore | 6 ++++--

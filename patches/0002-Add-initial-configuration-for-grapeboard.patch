@@ -1,7 +1,7 @@
 From 91a02e2dea333ebd505632580b277844d9cc57bc Mon Sep 17 00:00:00 2001
 From: Nicholas Pridybailo <nikolai.pridybailo@edality.by>
 Date: Wed, 3 Apr 2019 11:20:36 +0300
-Subject: [PATCH 2/9] Add initial configuration for grapeboard
+Subject: Add initial configuration for grapeboard
 
 ---
  configs/grapeboard.cfg           | 111 +++++++++++++++++++++++++++++++

@@ -1,8 +1,8 @@
 From 71e14457d890a9d1f320717a4a5ef4fba279b86f Mon Sep 17 00:00:00 2001
 From: Nicholas Pridybailo <nikolai.pridybailo@edality.by>
 Date: Thu, 25 Apr 2019 17:36:08 +0300
-Subject: [PATCH 9/9] Implement 'mkfw' command support for trustbox machine
- Usage: flex-builder -i mkfw -m trustbox -b qspi
+Subject: Implement 'mkfw' command support for trustbox machine Usage:
+ flex-builder -i mkfw -m trustbox -b qspi
 
 ---
  configs/board/trustbox/manifest |  5 ++-

@@ -1,8 +1,8 @@
 From 8ea28f0991c6057fa9b095ab6d9761ebb368eb90 Mon Sep 17 00:00:00 2001
 From: Nicholas Pridybailo <nikolai.pridybailo@edality.by>
 Date: Mon, 15 Apr 2019 11:50:11 +0300
-Subject: [PATCH 4/9] Add target for rtl8723b firmware, add wireless network
- utils to trustbox packages list for Ubuntu
+Subject: Add target for rtl8723b firmware, add wireless network utils to
+ trustbox packages list for Ubuntu
 
 ---
  configs/board/trustbox/manifest  |  7 +++---
