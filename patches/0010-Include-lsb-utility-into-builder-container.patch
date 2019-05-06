@@ -1,0 +1,24 @@
+From 1b99ae53a8fbe8fa15975ceba6a3959d5da4e43a Mon Sep 17 00:00:00 2001
+From: Dmitry Lavnikevich <dmitry.lavnikevich@edality.by>
+Date: Fri, 3 May 2019 11:57:11 +0300
+Subject: Include lsb utility into builder container
+
+---
+ docker/ubuntu/18.04/Dockerfile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/docker/ubuntu/18.04/Dockerfile b/docker/ubuntu/18.04/Dockerfile
+index 54fe59b..8fad059 100644
+--- a/docker/ubuntu/18.04/Dockerfile
++++ b/docker/ubuntu/18.04/Dockerfile
+@@ -23,6 +23,6 @@ RUN apt-get update && apt-get install -y \
+         libcunit1-dev pkg-config autotools-dev crossbuild-essential-armhf openssh-server \
+         openssh-client crossbuild-essential-armhf qemu-utils kmod g++-aarch64-linux-gnu  \
+ 	cpp-arm-linux-gnueabihf dosfstools ruby iputils-ping cpio rsync libtclap-dev \
+-	parted android-tools-fsutils rpm2cpio
++	parted android-tools-fsutils rpm2cpio lsb
+ 
+ RUN pip install six
+-- 
+2.20.1
+
