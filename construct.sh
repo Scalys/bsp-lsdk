@@ -11,6 +11,7 @@ LSDK_SRC_MD5="1efc3535b0255b088c0956e9c4ae3371"
 LSDK_SRC_DIR="flexbuild_lsdk1903"
 
 PATCHES_DIR="patches"
+PATCHES_APPLIED=".patches-applied"
 
 
 usage() {
@@ -22,6 +23,9 @@ EOF
 
 info() {
     echo "$@"
+}
+info_start() {
+    echo -n "$@"
 }
 
 err() {
@@ -46,13 +50,31 @@ lsdk_src_unpack() {
     tar xf "$LSDK_SRC" || err "failed to extract LSDK contents"
     mv "$LSDK_SRC_DIR"/* .
     rmdir "$LSDK_SRC_DIR"
+    rm -f "$PATCHES_APPLIED"
 }
 
 lsdk_patch() {
+    local stderr
+
     info "Patching LSDK..."
 
     for patch in `ls -1 $PATCHES_DIR`; do
-        git apply --exclude .gitignore "$PATCHES_DIR/$patch"
+        info_start "$patch"
+        grep -q "$patch" "$PATCHES_APPLIED" &> /dev/null && {
+            info " - skipping"
+            continue
+        }
+
+        stderr=$(git apply --exclude .gitignore "$PATCHES_DIR/$patch" 2>&1 >/dev/null)
+        if [ $? -ne 0 ]; then
+            info " - failed to apply"
+            echo "$stderr"
+            exit 1
+        else
+            info
+        fi
+
+        echo "$patch" >> "$PATCHES_APPLIED"
     done
 }
 

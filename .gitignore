@@ -17,6 +17,7 @@ tools
 logs
 build
 packages
+.patches-applied
 
 # Misc
 .bashrc
