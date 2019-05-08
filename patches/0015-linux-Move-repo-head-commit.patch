@@ -1,0 +1,26 @@
+From 80dcd0482a767db96563ed32e040708e1300f66c Mon Sep 17 00:00:00 2001
+From: Dmitry Lavnikevich <dmitry.lavnikevich@edality.by>
+Date: Wed, 8 May 2019 03:06:29 +0300
+Subject: linux: Move repo head commit
+
+Remove bluetooth and sound modules from the kernel config.
+---
+ configs/trustbox.cfg | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/configs/trustbox.cfg b/configs/trustbox.cfg
+index 674284e..dcd077a 100644
+--- a/configs/trustbox.cfg
++++ b/configs/trustbox.cfg
+@@ -115,7 +115,7 @@ linux_config_list_arm32v7="multi_v7_defconfig multi_v7_lpae.config lsdk.config"
+ #kernel git repository
+ linux_repo_url=https://github.com/Scalys/linux-qoriq.git
+ linux_repo_branch=trustbox-1903
+-linux_repo_commit=bf82c1de7c34f607295e383a716cabce576afa00
++linux_repo_commit=a43402647a425982b76fb9a559e11b5e78e28dfe
+ 
+ # uboot git repository
+ u_boot_repo_url=https://github.com/Scalys/u-boot-qoriq.git
+-- 
+2.20.1
+

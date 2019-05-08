@@ -1,0 +1,83 @@
+From a4e6978b14b1cccdb9d042108e3963dc64e2b99e Mon Sep 17 00:00:00 2001
+From: Dmitry Lavnikevich <dmitry.lavnikevich@edality.by>
+Date: Wed, 8 May 2019 03:03:21 +0300
+Subject: trustbox: Integrate azure iotedge into default build
+
+---
+ configs/trustbox.cfg             |  7 ++++++-
+ configs/ubuntu/packages_trustbox |  3 ++-
+ packages/apps/Makefile           | 15 +++++++++++++++
+ 3 files changed, 23 insertions(+), 2 deletions(-)
+
+diff --git a/configs/trustbox.cfg b/configs/trustbox.cfg
+index 4314b4d..674284e 100644
+--- a/configs/trustbox.cfg
++++ b/configs/trustbox.cfg
+@@ -39,6 +39,7 @@ CONFIG_BUILD_OPTEE=n
+ CONFIG_BUILD_LIBPKCS11=n
+ CONFIG_BUILD_SECURE_OBJ=n
+ CONFIG_BUILD_EDGESCALE=n
++CONFIG_BUILD_AZURE_IOTEDGE=y
+ CONFIG_BUILD_RTL8723BU=y
+ 
+ # default i.MX ARM machine list for autobuild
+@@ -100,7 +101,7 @@ fbdockerimgversion=18.04
+ # component repository list for autobuild
+ firmware_repo_list="atf u-boot qoriq-uefi-binary qoriq-fm-ucode mc-utils qoriq-mc-binary qoriq-qe-ucode qoriq-firmware-cortina qoriq-firmware-inphi qoriq-engine-pfe-bin ddr-phy-binary"
+ linux_repo_list="linux cryptodev-linux lttng-modules rtl8723bu"
+-apps_repo_list="restool flib fmlib fmc spc dpdk vpp pktgen-dpdk ovs-dpdk openssl gpp-aioptool cst aiopsl ptpd ceetm dce qbman_userspace eth-config crconf iperf optee_os optee_client optee_test secure_obj libpkcs11 qoriq-edgescale-eds qoriq-eds-kubelet qoriq-eds-bootstrap openstack-nova"
++apps_repo_list="restool flib fmlib fmc spc dpdk vpp pktgen-dpdk ovs-dpdk openssl gpp-aioptool cst aiopsl ptpd ceetm dce qbman_userspace eth-config crconf iperf optee_os optee_client optee_test secure_obj libpkcs11 qoriq-edgescale-eds qoriq-eds-kubelet qoriq-eds-bootstrap openstack-nova azure-iotedge"
+ 
+ # default git tree and branch
+ default_uboot_tree=u-boot
+@@ -196,3 +197,7 @@ buildroot_repo_branch=2018.11.x
+ ramdiskrfs_url=https://www.nxp.com/lgfiles/sdk/lsdk
+ ruby_src_url=https://cache.ruby-lang.org/pub/ruby/ruby-2.5.1.tar.gz
+ iproute2_src_url=https://mirrors.edge.kernel.org/pub/linux/utils/net/iproute2/iproute2-4.15.0.tar.gz
++azure_iotedge_deb_name=iotedge_1.0.8~dev-1_arm64.deb
++azure_iotedge_deb_url=https://www.grapeboard.com/wp-content/pkgs/lsdk-1903/iotedge_1.0.8~dev-1_arm64.deb
++azure_libiothsm_deb_name=libiothsm-std_1.0.8~dev-1_arm64.deb
++azure_libiothsm_deb_url=https://www.grapeboard.com/wp-content/pkgs/lsdk-1903/libiothsm-std_1.0.8~dev-1_arm64.deb
+diff --git a/configs/ubuntu/packages_trustbox b/configs/ubuntu/packages_trustbox
+index 68b06b0..9493589 100644
+--- a/configs/ubuntu/packages_trustbox
++++ b/configs/ubuntu/packages_trustbox
+@@ -6,7 +6,8 @@ additional_main_packages_list="apt apt-utils git gcc vim wget make build-essenti
+  bc qemu-kvm bridge-utils libtool libncurses5-dev bison libelf-dev curl flex autotools-dev
+  openssh-server openssh-client tcpdump vlan ifenslave linux-tools-generic tftp-hpa tftpd-hpa
+  strace debootstrap mdadm vsftpd telnet sysstat rdate initramfs-tools mtd-utils dosfstools
+- net-tools iputils-ping hdparm psmisc keyutils python-numpy iw wpasupplicant hostapd bluez"
++ net-tools iputils-ping hdparm psmisc keyutils python-numpy iw wpasupplicant hostapd bluez
++ docker.io"
+ 
+ # for devel userland gathered packages from universe/multiverse/restricted besides main repo
+ additional_devel_packages_list="makedev tree lxc lxd virt-manager lm-sensors i2c-tools fio rt-tests
+diff --git a/packages/apps/Makefile b/packages/apps/Makefile
+index 695d066..28537ed 100644
+--- a/packages/apps/Makefile
++++ b/packages/apps/Makefile
+@@ -606,6 +606,21 @@ ifeq ($(CONFIG_BUILD_EDGESCALE), y)
+ endif
+ 
+ 
++.PHONY: azure-iotedge
++azure-iotedge:
++ifeq ($(CONFIG_BUILD_AZURE_IOTEDGE), y)
++	mkdir -p $(FBDIR)/packages/apps/azure-iotedge && \
++	cd $(FBDIR)/packages/apps/azure-iotedge && \
++	wget $(azure_libiothsm_deb_url) && \
++	wget $(azure_iotedge_deb_url) && \
++	cp $(azure_libiothsm_deb_name) $(azure_iotedge_deb_name) $(RFSDIR)
++	sudo chroot $(RFSDIR) dpkg -i /$(azure_libiothsm_deb_name) && \
++	sudo chroot $(RFSDIR) rm -f /$(azure_libiothsm_deb_name)
++	sudo chroot $(RFSDIR) dpkg -i /$(azure_iotedge_deb_name) && \
++	sudo chroot $(RFSDIR) rm -f /$(azure_iotedge_deb_name)
++endif
++
++
+ repo_fetch:
+ 	@echo -e "\nfetch apps repositories ..."
+ 	@$(call repo-update,fetch,$(APPS_REPO_LIST))
+-- 
+2.20.1
+
