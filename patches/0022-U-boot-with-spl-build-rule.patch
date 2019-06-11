@@ -1,0 +1,94 @@
+From c329f77670d49ee68e5b5e8d40a2f80d584b7096 Mon Sep 17 00:00:00 2001
+From: Nicholas Pridybailo <nikolai.pridybailo@edality.by>
+Date: Fri, 7 Jun 2019 11:52:06 +0300
+Subject: U-boot with spl build rule
+
+---
+ packages/firmware/Makefile |  7 +++++++
+ tools/flex-builder         | 23 +++--------------------
+ 2 files changed, 10 insertions(+), 20 deletions(-)
+
+diff --git a/packages/firmware/Makefile b/packages/firmware/Makefile
+index f36e94d..9f6cf04 100644
+--- a/packages/firmware/Makefile
++++ b/packages/firmware/Makefile
+@@ -118,6 +118,13 @@ define build-uboot-target
+ 	        tgtbin=uboot_`echo $1|sed -r 's/(.*)(_.*)/\1/'`.bin; \
+ 	    fi; \
+ 	fi && \
++	if [ $(MACHINE) = trustbox ] ; then \
++		if [ -f $$opdir/u-boot-with-spl-pbl.bin ]; then \
++			srcbin=u-boot-with-spl-pbl.bin; \
++		else \
++			srcbin=u-boot$$dtbstr.bin; \
++		fi; \
++	fi; \
+ 	cp $$opdir/$$srcbin $(FBDIR)/build/firmware/u-boot/$$brd/$$tgtbin && \
+ 	$(call fbprint_d,"$(FBDIR)/build/firmware/u-boot/$$brd/$$tgtbin");
+ endef
+diff --git a/tools/flex-builder b/tools/flex-builder
+index 22e47a9..6e6d735 100755
+--- a/tools/flex-builder
++++ b/tools/flex-builder
+@@ -111,8 +111,6 @@ generate_trustbox_composite_firmware() {
+ 
+ 	local build_dir=$FBDIR/build/images/${MACHINE}
+ 	local fwimg=${build_dir}/${MACHINE}_${BOOTTYPE}_fw.itb
+-	local bootloaderpblimg=${build_dir}/components/u-boot-with-pbl.bin
+-	local rcwimg=`eval echo '${'"rcw_""${BOOTTYPE}"'}'`
+ 	local bootloaderimg=`eval echo '${uboot_'"${BOOTTYPE}"'boot}'`
+ 
+ 	if [ -z "$bootloaderimg" ]; then
+@@ -123,14 +121,6 @@ generate_trustbox_composite_firmware() {
+ 		flex-builder -c uboot -m ${MACHINE} -b ${BOOTTYPE}
+ 	fi
+ 
+-	if [ -z "$rcwimg" ]; then
+-		echo Error: rcw_${BOOTTYPE} on ${MACHINE} unsupported!
+-		exit
+-	elif [ -n "$rcwimg" ] && [ ! -f $FBDIR/$rcwimg ]; then
+-		echo $rcwimg not exist, generating it ...
+-		flex-builder -c rcw -m ${MACHINE}
+-	fi
+-
+ 	if [ -z "$pfe_fw" ]; then
+ 		echo Error: $pfe_fw on ${MACHINE} unsupported!
+ 		exit
+@@ -158,23 +148,16 @@ generate_trustbox_composite_firmware() {
+ 		mkdir ${build_dir}/components
+ 	fi
+ 
+-	cp ${rcwimg} ${build_dir}/components/pbl.bin
+-	cp ${bootloaderimg} ${build_dir}/components/u-boot.bin
++	cp ${bootloaderimg} ${build_dir}/components/u-boot-with-pbl.bin
+ 	cp ${pfe_fw} ${build_dir}/components/pfe_fw_sbl.itb
+ 	cp ${ppa_fw} ${build_dir}/components/ppa.itb
+ 
+ 	local block_size=256
+-	local rcw_offset=`echo "$(( 0x00000000 / "$block_size" ))"`
+-	local bootloader_offset=`echo "$(( 0x00001000 / "$block_size" ))"`
++	local bootloader_offset=`echo "$(( 0x00000000 / "$block_size" ))"`
+ 	local pfe_fw_offset=`echo "$(( 0x00240000 / "$block_size" ))"`
+ 	local ppa_fw_offset=`echo "$(( 0x00280000 / "$block_size" ))"`
+ 
+-	dd if=/dev/zero bs=1M count=2 | tr '\000' '\377' > ${bootloaderpblimg}
+-	dd if=${rcwimg} of=${bootloaderpblimg} obs=${block_size} seek=${rcw_offset} conv=notrunc
+-	dd if=${bootloaderimg} of=${bootloaderpblimg} obs=${block_size} seek=${bootloader_offset} conv=notrunc
+-
+ 	dd if=/dev/zero bs=1M count=64 | tr '\000' '\377' > ${fwimg}
+-	dd if=${rcwimg} of=${fwimg} obs=${block_size} seek=${rcw_offset} conv=notrunc
+ 	dd if=${bootloaderimg} of=${fwimg} obs=${block_size} seek=${bootloader_offset} conv=notrunc
+ 	dd if=${pfe_fw} of=${fwimg} obs=${block_size} seek=${pfe_fw_offset} conv=notrunc
+ 	dd if=${ppa_fw} of=${fwimg} obs=${block_size} seek=${ppa_fw_offset} conv=notrunc
+@@ -1431,7 +1414,7 @@ merge_components() {
+ 	if [ "$DESTDIR" != "$RFSDIR" ]; then
+ 	    sudo cp -rf $DESTDIR/* $RFSDIR
+ 	fi
+-	sudo chroot $RFSDIR ldconfig
++	#sudo chroot $RFSDIR ldconfig
+     elif [ $DISTROTYPE = centos ] && [ $SOCFAMILY = LS ]; then
+ 	if [ ! -f $DESTDIR/usr/local/bin/restool ]; then
+ 	    flex-builder -c restool -a ${DESTARCH} -f $CONFIGLIST
+-- 
+2.21.0
+
