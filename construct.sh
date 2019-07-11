@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 UTIL_NAME=`basename $0`
 UTIL_DIR=`dirname $0`
