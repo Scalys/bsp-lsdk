@@ -1,0 +1,26 @@
+From 8ca7d35a00ad2bd533c01ff9ad2d2c8779e9018d Mon Sep 17 00:00:00 2001
+From: serek4 <jacezarem@gmail.com>
+Date: Thu, 28 May 2020 10:48:40 +0200
+Subject: added docker-compose and gnupg2 pass packages
+
+gnupg2 pass - needed to fix dockerhub login
+---
+ configs/ubuntu/packages_trustbox | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/configs/ubuntu/packages_trustbox b/configs/ubuntu/packages_trustbox
+index 220a5b7..a13a7ab 100644
+--- a/configs/ubuntu/packages_trustbox
++++ b/configs/ubuntu/packages_trustbox
+@@ -7,7 +7,7 @@ additional_main_packages_list="apt apt-utils git gcc vim wget make build-essenti
+  openssh-server openssh-client tcpdump vlan ifenslave linux-tools-generic tftp-hpa tftpd-hpa
+  strace debootstrap mdadm vsftpd telnet sysstat rdate initramfs-tools mtd-utils dosfstools
+  net-tools iputils-ping hdparm psmisc keyutils python-numpy iw wpasupplicant hostapd bluez
+- docker.io rng-tools"
++ docker.io rng-tools docker-compose gnupg2 pass"
+ 
+ # for devel userland gathered packages from universe/multiverse/restricted besides main repo
+ additional_devel_packages_list="makedev tree lxc lxd virt-manager lm-sensors i2c-tools fio rt-tests
+-- 
+2.25.1
+
