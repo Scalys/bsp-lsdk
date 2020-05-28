@@ -7,4 +7,4 @@ To compose the BSP download the LSDK sources archive flexbuild_lsdk1903.tgz, pla
 $ ./construct.sh
 ```
 
-Then follow the build instructions described in the [build guide](https://www.grapeboard.com/wp-content/uploads/2018/10/Scalys_Grapeboard-bsp-user-guide_18102018.pdf).
+Then follow the build instructions described in the [build guide](https://www.grapeboard.com/wp-content/uploads/2019/09/Scalys_Grapeboard-bsp-user-guide_20190902.pdf).
