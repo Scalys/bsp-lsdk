@@ -1,0 +1,401 @@
+From 808a4dd6132db8ac598a32825cbae7027eccb0c9 Mon Sep 17 00:00:00 2001
+From: Dmitry Lavnikevich <dmitry.lavnikevich@scalys.by>
+Date: Thu, 2 Jul 2020 17:59:45 +0300
+Subject: [PATCH 12/12] Update u-boot version
+
+---
+ configs/linux/linux_arm64_LS_main.its | 366 ++++++++++++++++++++++++++
+ configs/trustbox.cfg                  |   4 +-
+ 2 files changed, 368 insertions(+), 2 deletions(-)
+ create mode 100644 configs/linux/linux_arm64_LS_main.its
+
+diff --git a/configs/linux/linux_arm64_LS_main.its b/configs/linux/linux_arm64_LS_main.its
+new file mode 100644
+index 0000000..0dbbd1c
+--- /dev/null
++++ b/configs/linux/linux_arm64_LS_main.its
+@@ -0,0 +1,366 @@
++/*
++ * Copyright 2017 - 2020 NXP
++ *
++ */
++
++
++/dts-v1/;
++
++/ {
++	description = "arm64 kernel, ramdisk and FDT blob";
++	#address-cells = <1>;
++
++	images {
++		kernel {
++			description = "ARM64 Kernel";
++			data = /incbin/("/home/haff/work/trustbox/lsdk-2004/bsp/build/linux/kernel/arm64/LS/Image.gz");
++			type = "kernel";
++			arch = "arm64";
++			os = "linux";
++			compression = "gzip";
++			load = <0x84080000>;
++			entry = <0x84080000>;
++			hash@1 {
++				algo = "crc32";
++			};
++		};
++
++		initrd {
++			description = "initrd for arm64";
++			data = /incbin/("../../packages/rfs/initrd/rootfs_lsdk2004_ubuntu_main_arm64.cpio.gz");
++			type = "ramdisk";
++			arch = "arm64";
++			os = "linux";
++			compression = "none";
++			load = <0x00000000>;
++			entry = <0x00000000>;
++			hash@1 {
++				algo = "crc32";
++			};
++		};
++
++		ls1012ardb-dtb {
++			description = "ls1012ardb-dtb";
++			data = /incbin/("/home/haff/work/trustbox/lsdk-2004/bsp/build/linux/kernel/arm64/LS/fsl-ls1012a-rdb.dtb");
++			type = "flat_dt";
++			arch = "arm64";
++			os = "linux";
++			compression = "none";
++			load = <0x90000000>;
++			hash@1 {
++				algo = "crc32";
++			};
++		};
++
++		ls1012aqds-dtb {
++			description = "ls1012aqds-dtb";
++			data = /incbin/("/home/haff/work/trustbox/lsdk-2004/bsp/build/linux/kernel/arm64/LS/fsl-ls1012a-qds.dtb");
++			type = "flat_dt";
++			arch = "arm64";
++			os = "linux";
++			compression = "none";
++			load = <0x90000000>;
++			hash@1 {
++				algo = "crc32";
++			};
++		};
++
++		ls1012afrwy-dtb {
++			description = "ls1012afrwy-dtb";
++			data = /incbin/("/home/haff/work/trustbox/lsdk-2004/bsp/build/linux/kernel/arm64/LS/fsl-ls1012a-frwy.dtb");
++			type = "flat_dt";
++			arch = "arm64";
++			os = "linux";
++			compression = "none";
++			load = <0x90000000>;
++			hash@1 {
++				algo = "crc32";
++			};
++		};
++
++		ls1028ardb-dtb {
++			description = "ls1028ardb-dtb";
++			data = /incbin/("/home/haff/work/trustbox/lsdk-2004/bsp/build/linux/kernel/arm64/LS/fsl-ls1028a-rdb.dtb");
++			type = "flat_dt";
++			arch = "arm64";
++			os = "linux";
++			compression = "none";
++			load = <0x90000000>;
++			hash@1 {
++				algo = "crc32";
++			};
++		};
++
++		ls1028aqds-dtb {
++			description = "ls1028aqds-dtb";
++			data = /incbin/("/home/haff/work/trustbox/lsdk-2004/bsp/build/linux/kernel/arm64/LS/fsl-ls1028a-qds.dtb");
++			type = "flat_dt";
++			arch = "arm64";
++			os = "linux";
++			compression = "none";
++			load = <0x90000000>;
++			hash@1 {
++				algo = "crc32";
++			};
++		};
++
++		ls1043ardb-dtb {
++			description = "ls1043ardb-dtb";
++			data = /incbin/("/home/haff/work/trustbox/lsdk-2004/bsp/build/linux/kernel/arm64/LS/fsl-ls1043a-rdb-sdk.dtb");
++			type = "flat_dt";
++			arch = "arm64";
++			os = "linux";
++			compression = "none";
++			load = <0x90000000>;
++			hash@1 {
++				algo = "crc32";
++			};
++		};
++
++
++		ls1043aqds-dtb {
++			description = "ls1043aqds-dtb";
++			data = /incbin/("/home/haff/work/trustbox/lsdk-2004/bsp/build/linux/kernel/arm64/LS/fsl-ls1043a-qds-sdk.dtb");
++			type = "flat_dt";
++			arch = "arm64";
++			os = "linux";
++			compression = "none";
++			load = <0x90000000>;
++			hash@1 {
++				algo = "crc32";
++			};
++		};
++
++		ls1046ardb-dtb {
++			description = "ls1046ardb-dtb";
++			data = /incbin/("/home/haff/work/trustbox/lsdk-2004/bsp/build/linux/kernel/arm64/LS/fsl-ls1046a-rdb-sdk.dtb");
++			type = "flat_dt";
++			arch = "arm64";
++			os = "linux";
++			compression = "none";
++			load = <0x90000000>;
++			hash@1 {
++				algo = "crc32";
++			};
++		};
++
++		ls1046aqds-dtb {
++			description = "ls1046aqds-dtb";
++			data = /incbin/("/home/haff/work/trustbox/lsdk-2004/bsp/build/linux/kernel/arm64/LS/fsl-ls1046a-qds-sdk.dtb");
++			type = "flat_dt";
++			arch = "arm64";
++			os = "linux";
++			compression = "none";
++			load = <0x90000000>;
++			hash@1 {
++				algo = "crc32";
++			};
++		};
++
++		ls1046afrwy-dtb {
++
++			description = "ls1046afrwy-dtb";
++			data = /incbin/("/home/haff/work/trustbox/lsdk-2004/bsp/build/linux/kernel/arm64/LS/fsl-ls1046a-frwy-sdk.dtb");
++			type = "flat_dt";
++			arch = "arm64";
++			os = "linux";
++			compression = "none";
++			load = <0x90000000>;
++			hash@1 {
++				algo = "crc32";
++			};
++		};
++
++		ls1088ardb-dtb {
++			description = "ls1088ardb-dtb";
++			data = /incbin/("/home/haff/work/trustbox/lsdk-2004/bsp/build/linux/kernel/arm64/LS/fsl-ls1088a-rdb.dtb");
++			type = "flat_dt";
++			arch = "arm64";
++			os = "linux";
++			compression = "none";
++			load = <0x90000000>;
++			hash@1 {
++				algo = "crc32";
++			};
++		};
++
++		ls1088aqds-dtb {
++			description = "ls1088aqds-dtb";
++			data = /incbin/("/home/haff/work/trustbox/lsdk-2004/bsp/build/linux/kernel/arm64/LS/fsl-ls1088a-qds.dtb");
++			type = "flat_dt";
++			arch = "arm64";
++			os = "linux";
++			compression = "none";
++			load = <0x90000000>;
++			hash@1 {
++				algo = "crc32";
++			};
++		};
++
++		ls2088ardb-dtb {
++			description = "ls2088ardb-dtb";
++			data = /incbin/("/home/haff/work/trustbox/lsdk-2004/bsp/build/linux/kernel/arm64/LS/fsl-ls2088a-rdb.dtb");
++			type = "flat_dt";
++			arch = "arm64";
++			os = "linux";
++			compression = "none";
++			load = <0x90000000>;
++			hash@1 {
++				algo = "crc32";
++			};
++		};
++
++		ls2088aqds-dtb {
++			description = "ls2088aqds-dtb";
++			data = /incbin/("/home/haff/work/trustbox/lsdk-2004/bsp/build/linux/kernel/arm64/LS/fsl-ls2088a-qds.dtb");
++			type = "flat_dt";
++			arch = "arm64";
++			os = "linux";
++			compression = "none";
++			load = <0x90000000>;
++			hash@1 {
++				algo = "crc32";
++			};
++		};
++
++		lx2160ardb-dtb {
++			description = "lx2160ardb-dtb";
++			data = /incbin/("/home/haff/work/trustbox/lsdk-2004/bsp/build/linux/kernel/arm64/LS/fsl-lx2160a-rdb.dtb");
++			type = "flat_dt";
++			arch = "arm64";
++			os = "linux";
++			compression = "none";
++			load = <0x90000000>;
++			hash@1 {
++				algo = "crc32";
++			};
++		};
++
++		lx2160aqds-dtb {
++			description = "lx2160aqds-dtb";
++			data = /incbin/("/home/haff/work/trustbox/lsdk-2004/bsp/build/linux/kernel/arm64/LS/fsl-lx2160a-qds.dtb");
++			type = "flat_dt";
++			arch = "arm64";
++			os = "linux";
++			compression = "none";
++			load = <0x90000000>;
++			hash@1 {
++				algo = "crc32";
++			};
++		};
++	};
++
++	configurations {
++		ls1012ardb {
++			description = "config for ls1012ardb";
++			kernel = "kernel";
++			ramdisk = "initrd";
++			fdt = "ls1012ardb-dtb";
++		};
++
++		ls1012aqds {
++			description = "config for ls1012aqds";
++			kernel = "kernel";
++			ramdisk = "initrd";
++			fdt = "ls1012aqds-dtb";
++		};
++
++		ls1012afrwy {
++			description = "config for ls1012afrwy";
++			kernel = "kernel";
++			ramdisk = "initrd";
++			fdt = "ls1012afrwy-dtb";
++		};
++
++		ls1028ardb {
++			description = "config for ls1028ardb";
++			kernel = "kernel";
++			ramdisk = "initrd";
++			fdt = "ls1028ardb-dtb";
++		};
++
++		ls1028aqds {
++			description = "config for ls1028aqds";
++			kernel = "kernel";
++			ramdisk = "initrd";
++			fdt = "ls1028aqds-dtb";
++		};
++
++		ls1043ardb {
++			description = "config for ls1043ardb";
++			kernel = "kernel";
++			ramdisk = "initrd";
++			fdt = "ls1043ardb-dtb";
++		};
++
++		ls1043aqds {
++			description = "config for ls1043aqds";
++			kernel = "kernel";
++			ramdisk = "initrd";
++			fdt = "ls1043aqds-dtb";
++		};
++
++		ls1046ardb {
++			description = "config for ls1046ardb";
++			kernel = "kernel";
++			ramdisk = "initrd";
++			fdt = "ls1046ardb-dtb";
++		};
++
++		ls1046aqds {
++			description = "config for ls1046aqds";
++			kernel = "kernel";
++			ramdisk = "initrd";
++			fdt = "ls1046aqds-dtb";
++		};
++
++		ls1046afrwy {
++			description = "config for ls1046afrwy";
++			kernel = "kernel";
++			ramdisk = "initrd";
++			fdt = "ls1046afrwy-dtb";
++		};
++
++		ls1088ardb {
++			description = "config for ls1088ardb";
++			kernel = "kernel";
++			ramdisk = "initrd";
++			fdt = "ls1088ardb-dtb";
++		};
++
++		ls1088aqds {
++			description = "config for ls1088aqds";
++			kernel = "kernel";
++			ramdisk = "initrd";
++			fdt = "ls1088aqds-dtb";
++		};
++
++		ls2088ardb {
++			description = "config for ls2088ardb";
++			kernel = "kernel";
++			ramdisk = "initrd";
++			fdt = "ls2088ardb-dtb";
++		};
++
++		ls2088aqds {
++			description = "config for ls2088aqds";
++			kernel = "kernel";
++			ramdisk = "initrd";
++			fdt = "ls2088aqds-dtb";
++		};
++
++		lx2160ardb {
++			description = "config for lx2160ardb";
++			kernel = "kernel";
++			ramdisk = "initrd";
++			fdt = "lx2160ardb-dtb";
++		};
++
++		lx2160aqds {
++			description = "config for lx2160aqds";
++			kernel = "kernel";
++			ramdisk = "initrd";
++			fdt = "lx2160aqds-dtb";
++		};
++	};
++};
+diff --git a/configs/trustbox.cfg b/configs/trustbox.cfg
+index adbe5f9..202dd92 100644
+--- a/configs/trustbox.cfg
++++ b/configs/trustbox.cfg
+@@ -158,8 +158,8 @@ linux_config_list_ppc32="corenet32_smp_defconfig"
+ rcw_repo_url=https://source.codeaurora.org/external/qoriq/qoriq-components/rcw.git
+ rcw_repo_tag=LSDK-20.04
+ uboot_repo_url=https://github.com/Scalys/u-boot-qoriq.git
+-uboot_repo_branch=trustbox-1903
+-uboot_repo_commit=074705471b3630f2725794a69d2d1a0c471abdf2
++uboot_repo_branch=trustbox-2004
++uboot_repo_commit=b0f39a94dc4708f25c3a0b4ffeba3c1ddfe54289
+ uboot_imx_repo_url=https://source.codeaurora.org/external/imx/uboot-imx
+ uboot_imx_repo_tag=rel_imx_4.9.123_2.3.0_8mm_ga
+ uefi_bin_repo_url=https://github.com/nxp/qoriq-uefi-binary.git
+-- 
+2.27.0
+
