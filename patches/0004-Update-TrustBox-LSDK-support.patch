@@ -1,0 +1,230 @@
+From ab13a6bc1bfd50108de2b884fcd1066ae0bda548 Mon Sep 17 00:00:00 2001
+From: Dmitry Lavnikevich <dmitry.lavnikevich@scalys.by>
+Date: Sun, 10 May 2020 18:18:11 +0300
+Subject: [PATCH 04/11] Update TrustBox LSDK support
+
+---
+ configs/trustbox.cfg               |  7 +++++--
+ docker/ubuntu/18.04/Dockerfile     |  4 ++--
+ packages/apps/security/security.mk | 15 ++++++++++++++-
+ packages/linux/Makefile            | 24 +++++++++++------------
+ tools/flex-builder                 | 31 +++++++++++++++++++++++++++++-
+ 5 files changed, 63 insertions(+), 18 deletions(-)
+
+diff --git a/configs/trustbox.cfg b/configs/trustbox.cfg
+index edb79d4..92f07ef 100644
+--- a/configs/trustbox.cfg
++++ b/configs/trustbox.cfg
+@@ -21,7 +21,7 @@ CONFIG_KERL_GPU_MODULE=n
+ CONFIG_KERL_CRYPTODEV_LINUX=y
+ CONFIG_KERL_LTTNG_MODULES=n
+ CONFIG_KERL_PERF=y
+-CONFIG_KERL_RTL8723BU=y
++CONFIG_KERL_RTL8723BU_MODULE=y
+ CONFIG_APP_RESTOOL=y
+ CONFIG_APP_FLIB=y
+ CONFIG_APP_FMLIB=y
+@@ -198,7 +198,7 @@ linux_firmware_repo_branch=master
+ #
+ linux_repo_url=https://github.com/Scalys/linux-qoriq.git
+ linux_repo_branch=trustbox-2004
+-linux_repo_commit=dbf4236df844941961258a15f6b4faf3420ed49f
++linux_repo_commit=1d6cc0257f9e0e2eedff67b1b9e739f0a7efd0d6
+ second_linux_repo_tag=LSDK-20.04-V4.19
+ cryptodev_linux_repo_url=https://source.codeaurora.org/external/qoriq/qoriq-components/cryptodev-linux.git
+ cryptodev_linux_repo_tag=LSDK-20.04
+@@ -206,6 +206,9 @@ gpu_module_repo_url=null
+ gpu_module_bin_url=https://www.nxp.com/lgfiles/sdk/lsdk2004/gpu-module-lsdk2004.bin
+ lttng_modules_repo_url=git://git.lttng.org/lttng-modules.git
+ lttng_modules_repo_branch=master
++rtl8723bu_module_repo_url=https://github.com/lwfinger/rtl8723bu.git
++rtl8723bu_module_repo_branch=master
++rtl8723bu_module_repo_commit=c9549d172a4f9d6ccf6d528682640246a41c2f0c
+ 
+ # App component git repositories
+ restool_repo_url=https://source.codeaurora.org/external/qoriq/qoriq-components/restool.git
+diff --git a/docker/ubuntu/18.04/Dockerfile b/docker/ubuntu/18.04/Dockerfile
+index 5c17b03..c3ede38 100644
+--- a/docker/ubuntu/18.04/Dockerfile
++++ b/docker/ubuntu/18.04/Dockerfile
+@@ -16,7 +16,7 @@ RUN rm -rf /var/lib/apt/lists/* && apt autoclean
+ RUN apt-get update --fix-missing && apt-get install -y locales && \
+     localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 && export LANG=en_US.utf8
+ 
+-RUN apt-get install -y \
++RUN apt-get update && apt-get install -y \
+         u-boot-tools device-tree-compiler autoconf automake dh-autoreconf libssl-dev zip \
+         openssl curl flex bison bc git gcc vim ethtool wget ftp make makedev tclsh ccache \
+         binfmt-support qemu-system-common qemu-user-static debootstrap sudo ncurses-dev  \
+@@ -30,7 +30,7 @@ RUN apt-get install -y \
+ 	parted android-tools-fsutils rpm2cpio lsb-release xutils-dev libwayland-bin cmake \
+ 	locales texinfo chrpath diffstat gawk scons libgflags-dev libhdf5-serial-dev \
+ 	python3-numpy python3-wheel python3-h5py
+-RUN apt-get install -y \
++RUN apt-get update && apt-get install -y \
+ 	python-pip
+ RUN pip install pycryptodome
+ 
+diff --git a/packages/apps/security/security.mk b/packages/apps/security/security.mk
+index a77c7f5..b8d09d9 100644
+--- a/packages/apps/security/security.mk
++++ b/packages/apps/security/security.mk
+@@ -44,9 +44,12 @@ ifeq ($(CONFIG_APP_OPENSSL), y)
+ 	     $(call fbprint_e,"$(DESTARCH) is not supported for openssl"); exit; \
+ 	 fi && \
+ 	 $(call fbprint_b,"OpenSSL") && $(call fetch-git-tree,openssl,apps/security) && \
++	 mkdir -p /tmp/bin/ &&  \
++	 ln -sf /usr/bin/python2 /tmp/bin/python && \
++	 PATH=/tmp/bin/:$(PATH) && \
+ 	 [ ! -d $(DESTDIR)/usr/local/include/crypto ] && \
+ 	 flex-builder -c cryptodev_linux -a $(DESTARCH) -f $(CONFIGLIST) || echo cryptodev exists && \
+-	 cd $(SECDIR)/openssl && ./Configure enable-devcryptoeng $$archopt shared -DSSL_DEBUG \
++	 cd $(SECDIR)/openssl && ./Configure enable-devcryptoeng $$archopt shared \
+ 	 -I$(DESTDIR)/usr/local/include --prefix=/usr/local --openssldir=lib/ssl && \
+ 	 $(MAKE) clean && $(MAKE) depend && $(MAKE) 1>/dev/null && \
+ 	 $(MAKE) DESTDIR=$(DESTDIR) install 1>/dev/null && \
+@@ -138,8 +141,12 @@ ifeq ($(DESTARCH),arm64)
+ 	     done; \
+ 	 else \
+ 	     if [ $(MACHINE) = ls1088ardb_pb ]; then brd=ls1088ardb; \
++	     elif [ $(MACHINE) = trustbox ]; then brd=ls1012grapeboard; \
+ 	     elif [ $(MACHINE) = lx2160ardb_rev2 ]; then brd=lx2160ardb; \
+ 	     elif [ $(MACHINE) = ls1046afrwy ]; then brd=ls1046ardb; else brd=$(MACHINE); fi && \
++	     mkdir -p /tmp/bin/ &&  \
++	     ln -sf /usr/bin/python2 /tmp/bin/python && \
++	     PATH=/tmp/bin/:$(PATH) && \
+ 	     cd $(SECDIR)/optee_os && $(MAKE) CFG_ARM64_core=y PLATFORM=ls-$$brd ARCH=arm;\
+ 		$(CROSS_COMPILE)\objcopy -v -O binary out/arm-plat-ls/core/tee.elf out/arm-plat-ls/core/tee_$(MACHINE).bin;\
+ 	     if [ $(MACHINE) = ls1012afrwy ]; then \
+@@ -161,6 +168,9 @@ ifeq ($(CONFIG_APP_OPTEE), y)
+ ifeq ($(DESTARCH),arm64)
+ 	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = mate -o $(DISTROSCALE) = lite ] && exit || \
+ 	 $(call fbprint_b,"optee_client") && $(call fetch-git-tree,optee_client,apps/security) && \
++	 mkdir -p /tmp/bin/ &&  \
++	 ln -sf /usr/bin/python2 /tmp/bin/python && \
++	 PATH=/tmp/bin/:$(PATH) && \
+ 	 cd $(SECDIR)/optee_client && $(MAKE) -j$(JOBS) ARCH=arm64 && mkdir -p $(DESTDIR)/usr/local/lib && \
+ 	 ln -sf $(DESTDIR)/lib/libteec.so $(DESTDIR)/usr/local/lib/libteec.so && \
+ 	 $(call fbprint_d,"optee_client")
+@@ -178,6 +188,9 @@ ifeq ($(DESTARCH),arm64)
+ 	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = mate -o $(DISTROSCALE) = lite ] && exit || \
+ 	 $(call fbprint_b,"optee_test") && $(call fetch-git-tree,optee_test,apps/security) && \
+ 	 if [ ! -f $(DESTDIR)/lib/libteec.so.1.0 ]; then flex-builder -c optee_client -m $(MACHINE); fi && \
++	 mkdir -p /tmp/bin/ &&  \
++	 ln -sf /usr/bin/python2 /tmp/bin/python && \
++	 PATH=/tmp/bin/:$(PATH) && \
+ 	 cd $(SECDIR)/optee_test && $(MAKE) CFG_ARM64=y OPTEE_CLIENT_EXPORT=$(DESTDIR) \
+ 	 TA_DEV_KIT_DIR=$(FBDIR)/packages/apps/security/optee_os/out/arm-plat-ls/export-ta_arm64 && \
+ 	 mkdir -p $(DESTDIR)/lib/optee_armtz && \
+diff --git a/packages/linux/Makefile b/packages/linux/Makefile
+index fcbbcd2..2d4de61 100644
+--- a/packages/linux/Makefile
++++ b/packages/linux/Makefile
+@@ -10,7 +10,7 @@ SHELL=/bin/bash
+ include $(FBDIR)/configs/$(CONFIGLIST)
+ include $(FBDIR)/include/repo.mk
+ 
+-REPO_LIST = linux cryptodev_linux gpu_module lttng_modules
++REPO_LIST = linux cryptodev_linux gpu_module lttng_modules rtl8723bu_module
+ LINUXDIR = $(PACKAGES_PATH)/linux
+ 
+ UEFI_DTB_LIST = freescale/fsl-ls1043a-rdb-sdk.dtb freescale/fsl-ls1046a-rdb-sdk.dtb freescale/fsl-ls2088a-rdb.dtb freescale/fsl-lx2160a-rdb.dtb
+@@ -19,7 +19,7 @@ PPC64_DTB_LIST = fsl/t1023rdb.dtb fsl/t1024rdb.dtb fsl/t1042d4rdb.dtb fsl/t2080r
+ 
+ 
+ .PHONY: linux
+-linux: build_kernel cryptodev_linux gpu_module
++linux: build_kernel cryptodev_linux gpu_module rtl8723bu_module
+ 
+ build_kernel:
+ ifeq ($(CONFIG_KERL_LINUX), y)
+@@ -164,20 +164,20 @@ lttng_modules:
+ 	 $(MAKE) KERNELDIR=$(KERNEL_PATH) O=$$opdir modules_install && \
+ 	 $(call fbprint_d,"LTTng modules")
+ 
+-.PHONY: rtl8723bu
+-rtl8723bu:
+-ifeq ($(CONFIG_BUILD_RTL8723BU), y)
+-	@$(call fetch-git-tree,rtl8723bu)
+-	@$(call fetch-git-tree,$(KERNEL_TREE))
+-	@if [ ! -d $(FBDIR)/build/linux/kernel/$(DESTARCH)/$(SOCFAMILY) ]; then cd $(FBDIR) && \
++.PHONY: rtl8723bu_module
++rtl8723bu_module:
++ifeq ($(CONFIG_KERL_RTL8723BU_MODULE), y)
++	@$(call fetch-git-tree,rtl8723bu_module,linux)
++	@$(call fetch-git-tree,$(KERNEL_TREE),linux)
++	if [ ! -d $(FBDIR)/build/linux/kernel/$(DESTARCH)/$(SOCFAMILY) ]; then cd $(FBDIR) && \
+ 	flex-builder -c linux -a $(DESTARCH) -f $(CONFIGLIST) && cd -; fi && \
+ 	echo -e "\nBuilding RTL8723BU module ..." && \
+-	sed -i 's/EXTRA_CFLAGS += -DCONFIG_CONCURRENT_MODE/#EXTRA_CFLAGS  += -DCONFIG_CONCURRENT_MODE/g' rtl8723bu/Makefile && \
+-	sed -i 's/#define CONFIG_IPS    1/\/\/#define CONFIG_IPS           1/g' rtl8723bu/include/autoconf.h && \
+-	cd rtl8723bu && \
++	sed -i 's/EXTRA_CFLAGS += -DCONFIG_CONCURRENT_MODE/#EXTRA_CFLAGS  += -DCONFIG_CONCURRENT_MODE/g' rtl8723bu_module/Makefile && \
++	sed -i 's/#define CONFIG_IPS    1/\/\/#define CONFIG_IPS           1/g' rtl8723bu_module/include/autoconf.h && \
++	cd rtl8723bu_module && \
+ 	curbrch=`cd $(KERNEL_PATH) && git branch -v | grep '^*' | cut -d' ' -f2` && \
+ 	$(MAKE) KSRC=$(FBDIR)/build/linux/$(KERNEL_TREE)/$(DESTARCH)/$(SOCFAMILY)/output/$$curbrch && \
+-	$(MAKE) -C $(FBDIR)/build/linux/$(KERNEL_TREE)/$(DESTARCH)/$(SOCFAMILY)/output/$$curbrch M=$(FBDIR)/packages/linux/rtl8723bu modules_install && \
++	$(MAKE) -C $(FBDIR)/build/linux/$(KERNEL_TREE)/$(DESTARCH)/$(SOCFAMILY)/output/$$curbrch M=$(FBDIR)/packages/linux/rtl8723bu_module modules_install && \
+ 	install rtl8723b_fw.bin -D $(FBDIR)/build/linux/$(KERNEL_TREE)/$(DESTARCH)/$(SOCFAMILY)/lib/firmware/rtl_bt/rtl8723b_fw.bin && \
+ 	echo build and installed RTL8723BU module+firmware done!
+ endif
+diff --git a/tools/flex-builder b/tools/flex-builder
+index 0c540cf..6b6cdab 100755
+--- a/tools/flex-builder
++++ b/tools/flex-builder
+@@ -818,6 +818,14 @@ build_distro_rfs_ubuntu() {
+ 	sudo cp -f $FBDIR/packages/rfs/misc/udev/udev-rules-qoriq/72-fsl-dpaa-persistent-networking.rules $RFSDIR/etc/udev/rules.d
+ 	sudo cp -f $FBDIR/packages/rfs/misc/udev/udev-rules-qoriq/73-fsl-enetc-networking.rules $RFSDIR/etc/udev/rules.d
+     fi
++
++    if [ "$MACHINE" = "trustbox" ]; then
++        echo $MACHINE > $RFSDIR/etc/hostname
++	# Clean apt.conf from NXP proxy settings
++	echo > $RFSDIR/etc/apt/apt.conf
++    fi
++
++
+     fbprint_d $RFSDIR
+ }
+ 
+@@ -1183,7 +1191,7 @@ merge_components() {
+ 	   sudo sed -i "2 i\ $APPS_REPO_LIST" $RFSDIR/etc/packages.list
+ 	   sudo sed -i "3 i\ " $RFSDIR/etc/packages.list
+ 	fi
+-	[ $VIRTABLE = y ] && sudo chroot $RFSDIR ldconfig
++#	[ $VIRTABLE = y ] && sudo chroot $RFSDIR ldconfig
+     elif [ $DISTROTYPE = centos ] && [ $SOCFAMILY = LS ]; then
+ 	echo Installing restool in $DISTROTYPE ...
+ 	[ -f $DESTDIR/usr/local/bin/restool ] || flex-builder -c restool -f $CONFIGLIST
+@@ -1204,6 +1212,27 @@ merge_components() {
+ 	sudo cp -f $pfe_kernel $RFSDIR/lib/firmware/
+     fi
+ 
++    #install RTL8723BU firmware to $RFSDIR/lib/firmware/
++    if [ $CONFIG_MACHINE_TRUSTBOX = y ]; then
++            if [ ! -f $FBDIR/build/linux/$KERNEL_TREE/$DESTARCH/$SOCFAMILY/lib/firmware/rtl_bt/rtl8723b_fw.bin  ]; then
++            flex-builder -c linux -a arm64 -m trustbox
++    fi
++            sudo mkdir -p $RFSDIR/lib/firmware/rtl_bt
++            . $FBDIR/configs/board/trustbox/manifest
++            sudo cp -f $FBDIR/$rtl8723bu_fw $RFSDIR/lib/firmware/rtl_bt/
++    fi
++ 
++    #install kernel, and dtb to $RFSDIR/boot/
++    if [ $CONFIG_MACHINE_TRUSTBOX = y ]; then
++            if [ ! -f $FBDIR/build/linux/$KERNEL_TREE/$DESTARCH/$SOCFAMILY/trustbox.dtb -o ! -f $FBDIR/build/linux/$KERNEL_TREE/$DESTARCH/$SOCFAMILY/uImage ]; then
++                    flex-builder -c linux -a $DESTARCH -m trustbox
++            fi
++            sudo mkdir -p $RFSDIR/boot/
++            sudo cp -f $FBDIR/build/linux/$KERNEL_TREE/$DESTARCH/$SOCFAMILY/uImage $RFSDIR/boot/
++            sudo cp -f $FBDIR/build/linux/$KERNEL_TREE/$DESTARCH/$SOCFAMILY/trustbox.dtb $RFSDIR/boot/
++    fi
++
++
+     # install linux headers and module headers
+     if [ -d $FBOUTDIR/linux/kernel/$DESTARCH/$SOCFAMILY/output -a -d $RFSDIR/usr/include ]; then
+ 	curbrch=`cd $KERNEL_PATH && git branch | grep ^* | cut -d' ' -f2 && cd $FBDIR`
+-- 
+2.27.0
+

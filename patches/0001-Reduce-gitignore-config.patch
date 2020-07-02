@@ -1,0 +1,2318 @@
+From b062a811f469a659ca7f6337b4ad9bead395393d Mon Sep 17 00:00:00 2001
+From: Dmitry Lavnikevich <dmitry.lavnikevich@scalys.by>
+Date: Thu, 2 Jul 2020 17:40:26 +0300
+Subject: [PATCH 01/11] Reduce gitignore config
+
+---
+ .gitignore                                    |  19 -
+ packages/apps/edgescale/edgescale.mk          | 105 ++++
+ packages/apps/eiq/README.md                   |  82 +++
+ packages/apps/eiq/eiq.mk                      | 487 ++++++++++++++++++
+ ...Add-cross-build-for-arm64-tensorflow.patch | 375 ++++++++++++++
+ packages/apps/generic/generic.mk              |  93 ++++
+ packages/apps/multimedia/multimedia.mk        | 139 +++++
+ packages/apps/networking/networking.mk        | 394 ++++++++++++++
+ packages/apps/security/security.mk            | 212 ++++++++
+ packages/firmware/atf.mk                      | 148 ++++++
+ packages/firmware/u-boot.mk                   | 165 ++++++
+ 11 files changed, 2200 insertions(+), 19 deletions(-)
+ delete mode 100644 .gitignore
+ create mode 100644 packages/apps/edgescale/edgescale.mk
+ create mode 100644 packages/apps/eiq/README.md
+ create mode 100644 packages/apps/eiq/eiq.mk
+ create mode 100644 packages/apps/eiq/patch/Add-cross-build-for-arm64-tensorflow.patch
+ create mode 100644 packages/apps/generic/generic.mk
+ create mode 100644 packages/apps/multimedia/multimedia.mk
+ create mode 100644 packages/apps/networking/networking.mk
+ create mode 100644 packages/apps/security/security.mk
+ create mode 100644 packages/firmware/atf.mk
+ create mode 100644 packages/firmware/u-boot.mk
+
+diff --git a/.gitignore b/.gitignore
+deleted file mode 100644
+index 56668c1..0000000
+--- a/.gitignore
++++ /dev/null
+@@ -1,19 +0,0 @@
+-# Build products
+-build
+-logs
+-packages/apps/*
+-!packages/apps/Makefile
+-packages/apps/eiq/*
+-!packages/apps/eiq/eiq.mk
+-packages/firmware/*
+-!packages/firmware/Makefile
+-packages/linux/*
+-!packages/linux/Makefile
+-packages/rfs/*
+-!packages/rfs/misc
+-!packages/rfs/Makefile
+-.bash*
+-*.tgz
+-*.log
+-*.o
+-
+diff --git a/packages/apps/edgescale/edgescale.mk b/packages/apps/edgescale/edgescale.mk
+new file mode 100644
+index 0000000..5864556
+--- /dev/null
++++ b/packages/apps/edgescale/edgescale.mk
+@@ -0,0 +1,105 @@
++#
++# Copyright 2017-2019 NXP
++#
++# SPDX-License-Identifier: BSD-3-Clause
++#
++#
++# SDK EdgeScale Components
++#
++
++
++EDGESCALE_REPO_LIST = edgescale_eds eds_kubelet eds_bootstrap
++EDGEDIR = $(PACKAGES_PATH)/apps/edgescale
++
++edgescale: $(EDGESCALE_REPO_LIST) selinux
++
++
++.PHONY: edgescale_eds
++edgescale_eds:
++	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = mate -o $(DISTROSCALE) = lite ] && exit || \
++	 $(call fbprint_b,"edgescale_eds") && $(call fetch-git-tree,edgescale_eds,apps/edgescale) && \
++	 if [ $(DESTARCH) = arm32 ]; then arch=arm; \
++	 elif [ $(DESTARCH) = arm64 ]; then arch=arm64; \
++	 else echo $(DESTARCH) is unsupported in edgescale_eds; exit 0; \
++	 fi && \
++	 if [ $(CONFIG_EDGESCALE_SECURE_MODE) = y ]; then \
++	     $(call fbprint_n,"Edgescale secure mode enabled") && \
++	     if [ $(DESTARCH) != arm64 ]; then \
++		 echo $(DESTARCH) is not supported yet for EdgeScale secure mode; exit 0; \
++	     fi && \
++	     if [ $(CONFIG_APP_OPTEE) = n ]; then \
++		 $(call fbprint_e,"Please enable CONFIG_APP_OPTEE to y in configs/$(CONFIGLIST)"); exit 1; \
++	     fi && \
++	     if [ ! -f $(DESTDIR)/lib/libteec.so ]; then \
++		 echo dependent libteec.so not exist, building it ... && flex-builder -c secure_obj -f $(CONFIGLIST); \
++	     fi && \
++	     if [ ! -d $(DESTDIR)/usr/local/include/openssl ]; then \
++		 echo dependent openssl not exist, building it ... && flex-builder -c openssl -f $(CONFIGLIST); \
++	     fi && \
++	     cd $(EDGEDIR)/edgescale_eds && $(MAKE) -j$(JOBS) ARCH=$$arch OPENSSL_PATH=$(DESTDIR)/usr/local \
++	     SECURE_OBJ_PATH=$(DESTDIR)/usr/local OPTEE_CLIENT_EXPORT=$(DESTDIR)/lib GOBUILDTAGS=secure; \
++	 else \
++	     $(call fbprint_w,"$(DESTARCH) Edgescale: CONFIG_EDGESCALE_SECURE_MODE is not enabled by default Building in general mode") && \
++	     cd $(EDGEDIR)/edgescale_eds && $(MAKE) -j$(JOBS) ARCH=$$arch OPENSSL_PATH=$(DESTDIR)/usr/local \
++	     SECURE_OBJ_PATH=$(DESTDIR)/usr/local OPTEE_CLIENT_EXPORT=$(DESTDIR)/lib; \
++	 fi && \
++	 $(MAKE) install INSTALL_DIR=$(DESTDIR) ARCH=$$arch && $(call fbprint_d,"edgescale_eds")
++
++
++.PHONY: eds_kubelet
++eds_kubelet:
++	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = mate -o $(DISTROSCALE) = lite ] && exit || \
++	 $(call fbprint_b,"eds_kubelet") && $(call fetch-git-tree,eds_kubelet,apps/edgescale) && \
++	 if [ $(DESTARCH) = arm32 ]; then arch=arm; elif [ $(DESTARCH) = arm64 ]; then arch=arm64; else \
++	 echo $(DESTARCH) is unsupported in eds-kubelet; exit 0; fi && \
++	 cd $(EDGEDIR)/eds_kubelet && $(MAKE) ARCH=$$arch && $(MAKE) install INSTALL_DIR=$(DESTDIR) ARCH=$$arch && \
++	 $(call fbprint_d,"eds_kubelet")
++
++
++.PHONY: eds_bootstrap
++eds_bootstrap:
++	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = mate -o $(DISTROSCALE) = lite ] && exit || \
++	 $(call fbprint_b,"eds_bootstrap") && $(call fetch-git-tree,eds_bootstrap,apps/edgescale) && \
++	 if [ $(DESTARCH) = arm32 ]; then arch=arm; elif [ $(DESTARCH) = arm64 ]; then \
++	 arch=arm64; else echo $(DESTARCH) is unsupported in eds-bootstrap; exit 0; fi && \
++	 cd $(EDGEDIR)/eds_bootstrap && $(MAKE) ARCH=$$arch && $(MAKE) install INSTALL_DIR=$(DESTDIR) ARCH=$$arch && \
++	 $(call fbprint_d,"eds_bootstrap")
++
++
++.PHONY: selinux
++selinux:
++	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = mate -o $(DISTROSCALE) = lite ] && exit || \
++	 if [ $(CONFIG_EDGESCALE_SECURE_MODE) = y -a $(VIRTABLE) = y ]; then \
++	     if [ ! -f $(RFSDIR)/usr/include/aarch64-linux-gnu/openssl/opensslconf.h ]; then $(call build_dependent_rfs); fi && \
++	     sudo mkdir -p $(RFSDIR)/tmp/selinux-build/ && \
++	     sudo cp $(FBDIR)/packages/rfs/misc/selinux/* $(RFSDIR)/tmp/selinux-build/ && \
++	     if [ $(DISTROSCALE) != main -a $(DISTROSCALE) != lite ]; then \
++		 sudo chroot $(RFSDIR) apt-get install -y dpkg gawk python bison flex selinux-utils \
++		 policycoreutils auditd grub2-common selinux-policy-default checkpolicy semodule-utils; \
++	     fi && \
++	     sudo bash -e $(RFSDIR)/tmp/selinux-build/download.sh && \
++	     sudo chroot $(RFSDIR) bash -e /tmp/selinux-build/build.sh; \
++	fi
++
++
++
++
++edgescale_repo_fetch:
++	@echo -e "\nfetch edgescale repositories: $(EDGESCALE_REPO_LIST)"
++	@$(call repo-update,fetch,$(EDGESCALE_REPO_LIST),apps/edgescale)
++
++edgescale_repo_update_branch:
++	@echo -e "\nedgescale repositories update for branch"
++	@$(call repo-update,branch,$(EDGESCALE_REPO_LIST),apps/edgescale)
++
++edgescale_repo_update_tag:
++	@echo -e "\nedgescale repositories update for tag"
++	@$(call repo-update,tag,$(EDGESCALE_REPO_LIST),apps/edgescale)
++
++edgescale_repo_update_latest:
++	@echo -e "\nedgescale repositories update to latest HEAD commit"
++	@$(call repo-update,update,$(EDGESCALE_REPO_LIST),apps/edgescale)
++
++edgescale_repo_update_commit:
++	@echo -e "\nedgescale repositories update to specified commit ID"
++	@$(call repo-update,commit,$(EDGESCALE_REPO_LIST),apps/edgescale)
+diff --git a/packages/apps/eiq/README.md b/packages/apps/eiq/README.md
+new file mode 100644
+index 0000000..1ee9042
+--- /dev/null
++++ b/packages/apps/eiq/README.md
+@@ -0,0 +1,82 @@
++As there is a lot of dependencies on host machine to cross build eIQ components, to avoid possible build
++issues in unknown invironment, please ensure build it in docker container generated by Flexbuild as below:
++```
++$ cd flexbuild
++$ source setup.env
++$ flex-builder docker
++[root@fbubuntu flexbuild]$ source setup.env
++[root@fbubuntu flexbuild]$ flex-builder -h
++```
++
++
++## Cross build eIQ components for target arm64 on x86 host machine
++```
++Usage: flex-builder -c <component> [ -a <arch> ]
++$ flex-builder -c eiq          # build all eIQ components (include armnn, tensorflow, tflite, opencv, onnx, etc)
++$ flex-builder -c armnn        # build armnn
++$ flex-builder -c tensorflow   # build tensorflow
++$ flex-builder -c tflite       # build tflite
++$ flex-builder -c opencv       # build opencv
++$ flex-builder -c caffe        # build caffe
++$ flex-builder -c onnx         # build onnx
++$ flex-builder -c onnxruntime  # build onnxruntime
++```
++
++
++## Build full LSDK with eIQ components for target arm64 on x86 host machine
++```
++$ flex-builder -i clean-eiq
++$ flex-builder -i mkrfs
++$ flex-builder -c eiq
++$ flex-builder -i mkbootpartition
++$ flex-builder -i merge-component -B eiq
++$ flex-builder -i install-eiq
++$ flex-builder -i packrfs
++```
++
++
++## Deploy eIQ components to target board
++To deploy full LSDK distro with eIQ images to target storage device on host machine for the first time:
++```
++$ flex-installer -r rootfs_lsdk2004_ubuntu_main_arm64.tgz -b bootpartition_LS_arm64_lts_5.4.tgz -d /dev/sdx
++```
++
++
++## To deploy the separate increment of specific eIQ component to the running LSDK distro on target board
++- Generate the increment components_LS_arm64_ubuntu_eIQ.tgz
++```
++$ flex-builder -i clean-apps -B eiq
++$ flex-builder -c <eiq_component>
++$ flex-builder -i packapps -B eiq
++```
++- Connect the remote arm64 rootfs running on target board to local host and add increment eIQ component to target board:
++
++```
++$ flex-builder connect <target_IP>
++$ flex-builder push eiq <target_IP>
++$ flex-builder disconnect <target_IP>
++
++```
++- In other way, you can download and install components_LS_arm64_ubuntu_eIQ.tgz to target rootfs as below:
++
++```
++$ tar xfmv components_LS_arm64_ubuntu_eIQ.tgz -C /
++
++```
++
++
++## To customize Linux kernel for specific eIQ feature
++```
++$ flex-builder -c linux:custom -a arm64   # customize .config for kernel in interactive menu
++$ flex-builder -c linux -a arm64          # build kernel with the customized .config
++```
++
++
++## How to add new eIQ component to LSDK
++```
++- Set CONFIG_EIQ_<component>=y, <component>_repo_url and <component>_repo_tag in configs/build_lsdk_xx.cfg
++- Add make target in packages/apps/eiq/eiq.mk and build the new component by command flex-builder -c <component>
++
++Optionally, you can modify the default repository tag/branch in configs/build_lsdk_xx.cfg on demand
++e.g. modify variable tensorflow_repo_tag, opencv_repo_branch, etc
++```
+diff --git a/packages/apps/eiq/eiq.mk b/packages/apps/eiq/eiq.mk
+new file mode 100644
+index 0000000..099767b
+--- /dev/null
++++ b/packages/apps/eiq/eiq.mk
+@@ -0,0 +1,487 @@
++#
++# Copyright 2019 NXP
++#
++# SPDX-License-Identifier: BSD-3-Clause
++#
++#
++# NXP eIQ™ Machine Learning Software Development Environment
++#
++
++eIQ_REPO_LIST = opencv armcl boost protobuf flatbuffer caffe onnx onnxruntime armnn \
++		tensorflow tflite
++
++eIQDIR = $(PACKAGES_PATH)/apps/eiq
++eIQDESTDIR = $(DESTDIR)_eIQ
++
++eiq: dependency $(eIQ_REPO_LIST) tensorflow-protobuf eiq_pack
++
++CAFFE_DEPENDENT_PKG = libgflags-dev libgoogle-glog-dev liblmdb-dev libopenblas-dev \
++		      libatlas-base-dev libleveldb-dev libsnappy-dev libopencv-dev \
++		      libhdf5-serial-dev libboost-all-dev
++
++TENSORFLOW_DEP_APT_PKG = python3-wheel python3-h5py
++TENSORFLOW_DEP_PIP_PKG = enum34 mock keras_applications==1.0.8 keras_preprocessing==1.1.0
++TARGET_DEPENDENT_PKG = libhdf5-serial-dev python3-wheel python3-h5py scons libgtk2.0-dev pkg-config  \
++		       libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libavresample-dev \
++		       python3-pip
++
++
++.PHONY: opencv
++opencv: dependency
++ifeq ($(CONFIG_EIQ_OPENCV), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu ] && exit || \
++	 $(call fbprint_b,"OpenCV") && \
++	 $(call fetch-git-tree,opencv,apps/eiq) && $(call fetch-git-tree,armcl,apps/eiq) && \
++	 mkdir -p $(eIQDIR)/opencv/build && cd $(eIQDIR)/opencv/build && \
++	 mkdir -p $(eIQDESTDIR)/usr/local/OpenCV && export DESTDIR=$(eIQDESTDIR) && \
++	 CXX=$(CROSS_COMPILE)g++ CC=$(CROSS_COMPILE)gcc \
++	 export PKG_CONFIG_FOUND=TRUE && \
++	 export PKG_CONFIG_LIBDIR=$(RFSDIR)/usr/lib/aarch64-linux-gnu/pkgconfig && \
++	 export PKG_CONFIG_PATH=$(RFSDIR)/usr/share/pkgconfig && \
++	 export PKG_CONFIG_EXECUTABLE=$(RFSDIR)/usr/bin/pkg-config && \
++	 cmake .. -DCMAKE_TOOLCHAIN_FILE=$(eIQDIR)/opencv/platforms/linux/aarch64-gnu.toolchain.cmake \
++		  -DCMAKE_BUILD_TYPE=Release -DBUILD_opencv_python2=OFF \
++		  -DBUILD_opencv_python3=ON -DWITH_GTK=ON -DWITH_GTK_2_X=ON -DWITH_FFMPEG=ON \
++		  -DCMAKE_SYSROOT=$(RFSDIR) -DZLIB_LIBRARY=$(RFSDIR)/lib/aarch64-linux-gnu/libz.so \
++		  -DWITH_OPENCL=OFF -DBUILD_JASPER=ON -DINSTALL_TESTS=ON \
++		  -DBUILD_EXAMPLES=ON -DBUILD_opencv_apps=ON \
++                  -DPYTHON_DEFAULT_EXECUTABLE=/usr/bin/python3 \
++                  -DPYTHON3_EXECUTABLE=/usr/bin/python3 -DCMAKE_INSTALL_PREFIX=/usr/local \
++                  -DPYTHON3_INCLUDE_DIR=$(RFSDIR)/usr/include/python3.6m \
++                  -DPYTHON3_LIBRARY=$(RFSDIR)/usr/lib/aarch64-linux-gnu/libpython3.6m.so \
++                  -DPYTHON3_NUMPY_INCLUDE_DIRS=$(RFSDIR)/usr/lib/python3/dist-packages/numpy/core/include \
++                  -DPYTHON3_PACKAGES_PATH=/usr/local/lib -DENABLE_VFPV3=OFF -DENABLE_NEON=ON \
++		  -DOPENCV_EXTRA_CXX_FLAGS="-I$(RFSDIR)/usr/include/gtk-2.0 -I$(RFSDIR)/usr/include/cairo \
++		   -I$(RFSDIR)/usr/lib/aarch64-linux-gnu/glib-2.0/include -I$(RFSDIR)/usr/include/pango-1.0 \
++		   -I$(RFSDIR)/usr/lib/aarch64-linux-gnu/gtk-2.0/include -I$(RFSDIR)/usr/include/gdk-pixbuf-2.0 \
++		   -I$(RFSDIR)/usr/include/atk-1.0 -I$(eIQDIR)/armcl/include" && \
++	 make -j$(JOBS) && make install && \
++	 cp -f bin/* $(eIQDESTDIR)/usr/local/bin && \
++	 cp -f ../samples/dnn/models.yml $(eIQDESTDIR)/usr/local/OpenCV/ && \
++	 cp -r ../samples/data $(eIQDESTDIR)/usr/local/OpenCV && \
++	 cd $(eIQDESTDIR)/usr/local/lib/cv2/python-3.6 && \
++	 mv cv2.cpython-36m-x86_64-linux-gnu.so cv2.cpython-36m-aarch64-linux-gnu.so && cd - && \
++	 $(call fbprint_d,"OpenCV")
++endif
++endif
++
++
++
++.PHONY: armcl
++armcl: dependency
++ifeq ($(CONFIG_EIQ_ARMCL), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu ] && exit || \
++	 $(call fbprint_b,"Arm Compute Library") && \
++	 $(call fetch-git-tree,armcl,apps/eiq) && cd $(eIQDIR)/armcl && \
++	 scons arch=arm64-v8a neon=1 opencl=0 extra_cxx_flags="-fPIC" \
++	    benchmark_tests=0 validation_tests=0 -j$(JOBS) && \
++	 $(call fbprint_n,"Installing ARM Compute Library") && \
++	 cp_args="-Prf --preserve=mode,timestamps --no-preserve=ownership" && \
++	 cp $$cp_args arm_compute support include/half $(eIQDESTDIR)/usr/local/include && \
++	 install -m 0755 build/libarm_compute*.so $(eIQDESTDIR)/usr/local/lib && \
++	 find build/examples -type f -executable -exec cp -f {} $(eIQDESTDIR)/usr/local/bin/ \; && \
++	 $(call fbprint_d,"armcl")
++endif
++endif
++
++
++
++.PHONY: armnn
++armnn: dependency boost
++ifeq ($(CONFIG_EIQ_ARMNN), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu ] && exit || \
++	 $(call fbprint_b,"ArmNN") && \
++	 $(call fetch-git-tree,armnn,apps/eiq) && $(call fetch-git-tree,armcl,apps/eiq) && \
++	 $(call fetch-git-tree,stb,apps/eiq) && $(call fetch-git-tree,onnx,apps/eiq) && \
++	 $(call fetch-git-tree,tflite,apps/eiq) && \
++	 [ ! -f $(eIQDESTDIR)/usr/local/lib/libprotobuf.so ] && \
++	 flex-builder -c protobuf -f $(CONFIGLIST) || echo libprotobuf.so exists && \
++	 [ ! -f caffe/build/src/caffe/proto/caffe.pb.cc ] && \
++	 flex-builder -c caffe -f $(CONFIGLIST) || echo caffe.pb.cc exists && \
++	 [ ! -d tensorflow-protobuf/tensorflow/core ] && \
++	 make tensorflow-protobuf -f $(FBDIR)/packages/apps/eiq/eiq.mk || \
++	 echo tensorflow-protobuf exists && \
++	 [ ! -f flatbuffer/libflatbuffers.a ] && \
++	 flex-builder -c flatbuffer -f $(CONFIGLIST) || echo libflatbuffers.a exists && \
++	 [ ! -f $(eIQDESTDIR)/usr/local/lib/libarm_compute.so ] && \
++	 flex-builder -c armcl -f $(CONFIGLIST) || echo libarm_compute.so exists && \
++	 [ ! -f onnx/onnx/onnx.pb.cc ] && \
++	 flex-builder -c onnx -f $(CONFIGLIST) || echo onnx.pb.cc exists && \
++	 cd $(eIQDIR)/armnn && mkdir -p build && cd build && \
++	 install_dir=$(eIQDESTDIR)/usr/local/bin && \
++	 CXX=$(CROSS_COMPILE)g++ CC=$(CROSS_COMPILE)gcc \
++	 cmake .. -DBUILD_TESTS=1 \
++		  -DBUILD_UNIT_TESTS=1 \
++		  -DBUILD_SHARED_LIBS=ON \
++		  -DARMCOMPUTE_ROOT=$(FBDIR)/packages/apps/eiq/armcl \
++		  -DARMCOMPUTE_BUILD_DIR=$(FBDIR)/packages/apps/eiq/armcl/build \
++		  -DBOOST_ROOT=$(eIQDESTDIR)/usr/local \
++		  -DTF_GENERATED_SOURCES=../../tensorflow-protobuf \
++		  -DBUILD_TF_LITE_PARSER=1 \
++		  -DTF_LITE_GENERATED_PATH=../../tensorflow/tensorflow/contrib/lite/schema \
++		  -DTF_LITE_SCHEMA_INCLUDE_PATH=../../tflite/tensorflow/lite/schema \
++		  -DFLATBUFFERS_ROOT=../../flatbuffer \
++		  -DFLATBUFFERS_LIBRARY=../../flatbuffer/libflatbuffers.a \
++		  -DFLATBUFFERS_INCLUDE_PATH=../../flatbuffer/include \
++		  -DFLATC_DIR=../../flatbuffer_host \
++		  -DARMCOMPUTENEON=1 \
++		  -DBUILD_TF_PARSER=1 \
++		  -DCAFFE_GENERATED_SOURCES=../../caffe/build/src \
++		  -DBUILD_CAFFE_PARSER=1 \
++		  -DPROTOBUF_ROOT=$(eIQDESTDIR)/usr/local \
++		  -DPROTOBUF_LIBRARY_DEBUG=../../protobuf/arm64_build/src/.libs/libprotobuf.so \
++		  -DPROTOBUF_LIBRARY_RELEASE=../../protobuf/arm64_build/src/.libs/libprotobuf.so \
++		  -DBUILD_ONNX_PARSER=1 \
++		  -DONNX_GENERATED_SOURCES=../../onnx \
++		  -DTHIRD_PARTY_INCLUDE_DIRS=../../stb \
++		  -DCMAKE_INSTALL_PREFIX=/usr/local && \
++	 make -j$(JOBS) && make install && \
++	 cp_args="-Prf --preserve=mode,timestamps --no-preserve=ownership" && \
++	 find tests -maxdepth 1 -type f -executable -exec cp $$cp_args {} $$install_dir \; && \
++	 find . -name "*.so" | xargs -I {} cp {} $(eIQDESTDIR)/usr/local/lib && \
++	 cp $$cp_args UnitTests $$install_dir && ls -l $(eIQDESTDIR)/usr/local/{bin,lib}/*rmnn* && \
++	 $(call fbprint_d,"ArmNN")
++endif
++endif
++
++
++
++.PHONY: tensorflow-protobuf
++tensorflow-protobuf:
++	@cd $(eIQDIR)/tflite && echo building dependent tensorflow-protobuf && \
++	 ../armnn/scripts/generate_tensorflow_protobuf.sh \
++	 ../tensorflow-protobuf ../protobuf/host_build && \
++	 echo built tensorflow-protobuf in $(eIQDIR)/tensorflow-protobuf/tensorflow
++
++
++
++.PHONY: tensorflow
++tensorflow: dependency bazel crosspyconfig
++ifeq ($(CONFIG_EIQ_TENSORFLOW), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu ] && exit || \
++	 $(call fbprint_b,"tensorflow") && \
++	 $(call fetch-git-tree,tensorflow,apps/eiq) && cd $(eIQDIR)/tensorflow && \
++	 export CC_OPT_FLAGS="-march=native" && \
++	 export PYTHON_BIN_PATH="/usr/bin/python3" && \
++	 export PYTHON_LIB_PATH=/usr/local/lib/python3.6/dist-packages && \
++	 export TF_NEED_IGNITE=0 && \
++	 export TF_ENABLE_XLA=0 && \
++	 export TF_NEED_OPENCL_SYCL=0 && \
++	 export TF_NEED_ROCM=0 && \
++	 export TF_NEED_CUDA=0 && \
++	 export TF_DOWNLOAD_CLANG=0 && \
++	 export TF_NEED_MPI=0 && \
++	 export TF_SET_ANDROID_WORKSPACE=0 && \
++	 export PATH="$(PATH):$(HOME)/bin" && \
++	 [ ! -f aarch64_compiler.BUILD ] && \
++	 git am ../patch/Add-cross-build-for-arm64-tensorflow.patch || \
++	 echo tensorflow version: $(tensorflow_repo_tag) && \
++	 ./configure && \
++	 bazel build -c opt //tensorflow/tools/pip_package:build_pip_package \
++	       --cpu=aarch64 --crosstool_top=//tools/aarch64_compiler:toolchain \
++	       --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
++	       --verbose_failures && \
++	 ./bazel-bin/tensorflow/tools/pip_package/build_pip_package \
++	 $(eIQDESTDIR)/usr/share/tensorflow --plat_name linux_aarch64 && \
++	 cp tensorflow/examples/label_image/label_image.py $(eIQDESTDIR)/usr/share/tensorflow && \
++	 cp tensorflow/examples/label_image/data/grace_hopper.jpg $(eIQDESTDIR)/usr/share/tensorflow && \
++	 ls -l $(eIQDESTDIR)/usr/share/tensorflow && $(call fbprint_d,"tensorflow")
++endif
++endif
++
++
++
++.PHONY: tflite
++tflite: dependency
++ifeq ($(CONFIG_EIQ_TFLITE), y)
++	@[ $(DISTROTYPE) != ubuntu -o $(shell echo $(DESTARCH)|cut -c 1-3) != arm ] && exit || \
++	 [ ! -f $(RFSDIR)/etc/buildinfo ] && echo building dependent $(RFSDIR) && \
++	 flex-builder -i mkrfs -r $(DISTROTYPE):$(DISTROSCALE) -a $(DESTARCH) -f $(CONFIGLIST) || \
++	 echo target $(RFSDIR) exist && \
++	 $(call fbprint_b,"tflite $(tflite_repo_tag)") && \
++	 $(call fetch-git-tree,tflite,apps/eiq) && cd $(eIQDIR)/tflite && \
++	 if [ $(DESTARCH) = arm64 -a ! -f tensorflow/lite/tools/make/gen/aarch64_armv8-a/lib/libtensorflow-lite.a ]; then \
++	     ./tensorflow/lite/tools/make/download_dependencies.sh && \
++	     LDFLAGS=-L$(RFSDIR)/lib/aarch64-linux-gnu \
++	     ./tensorflow/lite/tools/make/build_aarch64_lib.sh; \
++	 elif [ $(DESTARCH) = arm32 -a ! -f tensorflow/lite/tools/make/gen/rpi_armv7l/lib/libtensorflow-lite.a ]; then \
++	     ./tensorflow/lite/tools/make/download_dependencies.sh && \
++	     ./tensorflow/lite/tools/make/build_rpi_lib.sh; \
++	 fi && \
++	 [ $(DESTARCH) = arm64 ] && tfarch=aarch64_armv8-a || tfarch=rpi_armv7l && \
++	 cp -f tensorflow/lite/tools/make/gen/$$tfarch/bin/* $(eIQDESTDIR)/usr/local/bin && \
++	 cp -f tensorflow/lite/tools/make/gen/$$tfarch/lib/*.a $(eIQDESTDIR)/usr/local/lib && \
++	 cp -f tensorflow/examples/label_image/data/* $(eIQDESTDIR)/usr/share/tensorflow && \
++	 ls -l $(eIQDESTDIR)/usr/local/bin/benchmark_model $(eIQDESTDIR)/usr/local/bin/minimal && \
++	 ls -l $(eIQDESTDIR)/usr/local/lib/libtensorflow-lite.a $(eIQDESTDIR)/usr/local/lib/benchmark-lib.a && \
++	 $(call fbprint_d,"tflite")
++endif
++
++
++
++.PHONY: protobuf
++protobuf:
++ifeq ($(CONFIG_EIQ_PROTOBUF), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu ] && exit || \
++	 $(call fbprint_b,"protobuf") && \
++	 $(call fetch-git-tree,protobuf,apps/eiq) && cd $(eIQDIR)/protobuf && \
++	 ./autogen.sh && mkdir -p host_build && cd host_build && \
++	 ../configure --prefix=/../../../packages/apps/eiq/protobuf/host_build && \
++	 make install -j$(JOBS) && cd .. && mkdir -p arm64_build && cd arm64_build && \
++	 CC=$(CROSS_COMPILE)gcc CXX=$(CROSS_COMPILE)g++ \
++	 ../configure --host=aarch64-linux --prefix=/usr/local \
++	 --with-protoc=$(FBDIR)/packages/apps/eiq/protobuf/host_build/bin/protoc && \
++	 DESTDIR=$(eIQDESTDIR) make install -j$(JOBS) && $(call fbprint_d,"protobuf")
++endif
++endif
++
++
++
++.PHONY: flatbuffer
++flatbuffer: dependency
++ifeq ($(CONFIG_EIQ_FLATBUFFER), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu ] && exit || \
++	 $(call fbprint_b,"flatbuffer") && \
++	 $(call fetch-git-tree,flatbuffer,apps/eiq) && cd $(eIQDIR) && \
++	 [ ! -d flatbuffer_host ] && mv flatbuffer flatbuffer_host && \
++	 cd flatbuffer_host && \
++	 cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release \
++	       -DFLATBUFFERS_BUILD_SHAREDLIB=ON \
++	       -DFLATBUFFERS_BUILD_TESTS=OFF && \
++	 make -j$(JOBS) && cd .. || echo flatbuffer_host exists && \
++	 $(call fetch-git-tree,flatbuffer,apps/eiq) && \
++	 cd flatbuffer && \
++	 CXX=$(CROSS_COMPILE)g++ CC=$(CROSS_COMPILE)gcc  \
++	 cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release \
++	     -DCMAKE_INSTALL_SO_NO_EXE=0 \
++	     -DFLATBUFFERS_BUILD_SHAREDLIB=ON \
++	     -DCMAKE_NO_SYSTEM_FROM_IMPORTED=1 \
++	     -DFLATBUFFERS_BUILD_TESTS=OFF \
++	     -DCMAKE_CXX_FLAGS=-fPIC \
++	     -DFLATBUFFERS_FLATC_EXECUTABLE=../flatbuffer_host/flatc && \
++	 make -j$(JOBS) && cp -f flatc $(eIQDESTDIR)/usr/local/bin && \
++	 $(call fbprint_d,"flatbuffer")
++endif
++endif
++
++
++
++.PHONY: caffe
++caffe: dependency boost
++ifeq ($(CONFIG_EIQ_CAFFE), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu ] && exit || \
++	 $(call fbprint_b,"caffe") && \
++	 $(call fetch-git-tree,caffe,apps/eiq) && cd $(eIQDIR)/caffe && \
++	 [ ! -d $(eIQDESTDIR)/usr/local/include/google/protobuf ] && \
++	 flex-builder -c protobuf -f $(CONFIGLIST) || echo protobuf exists && \
++	 cp Makefile.config.example Makefile.config && \
++	 sed -i "/^# CPU_ONLY := 1/s/#//g" Makefile.config && \
++	 sed -i "/^# USE_OPENCV := 0/s/#//g" Makefile.config && \
++	 sed -i "/^INCLUDE_DIRS/a INCLUDE_DIRS += /usr/include/hdf5/serial \
++	     $(eIQDESTDIR)/usr/local/include/" Makefile.config && \
++	 sed -i "/^LIBRARY_DIRS/a LIBRARY_DIRS += /usr/lib/`uname -i`-linux-gnu/hdf5/serial \
++	     $(FBDIR)/packages/apps/eiq/protobuf/host_build/lib" Makefile.config && \
++	 export PATH=$(FBDIR)/packages/apps/eiq/protobuf/host_build/bin/:$(PATH) && \
++	 export LD_LIBRARY_PATH=$(FBDIR)/packages/apps/eiq/protobuf/host_build/lib:$(LD_LIBRARY_PATH) && \
++	 make all -j$(JOBS) && make test -j$(JOBS) && make runtest -j$(JOBS) && \
++	 $(call fbprint_d,"caffe")
++endif
++endif
++
++
++
++.PHONY: onnx
++onnx: dependency
++ifeq ($(CONFIG_EIQ_ONNX), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu ] && exit || \
++	 $(call fbprint_b,"onnx") && \
++	 export ONNX_ML=1 && $(call fetch-git-tree,onnx,apps/eiq) && \
++	 unset ONNX_ML && cd $(eIQDIR)/onnx && \
++	 export LD_LIBRARY_PATH=../protobuf/host_build/lib:$(LD_LIBRARY_PATH) && \
++	 ../protobuf/host_build/bin/protoc onnx/onnx.proto --proto_path=. \
++	    --proto_path=$(eIQDESTDIR)/usr/local/include --cpp_out . && \
++	 $(call fbprint_d,"onnx")
++endif
++endif
++
++
++
++.PHONY: onnxruntime
++onnxruntime: dependency crosspyconfig
++ifeq ($(CONFIG_EIQ_ONNXRUNTIME), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu ] && exit || \
++	 $(call fbprint_b,"onnxruntime") && \
++	 $(call fetch-git-tree,onnxruntime,apps/eiq,nosubmodule) && cd $(eIQDIR)/onnxruntime && \
++	 sed -i 's/1456fe2fac0cd074bbbb8630ba003a7c325d015b/efd9867ff0e8df23016ac6c9828d0d7bf8bec1b1/' cgmanifest.json && \
++	 git submodule update --init && \
++	 if [ ! -f $(HOME)/cmake-3.16.2/bin/cmake ]; then \
++	     wget https://github.com/Kitware/CMake/releases/download/v3.16.2/cmake-3.16.2-Linux-x86_64.sh && \
++	     chmod +x cmake-3.16.2-Linux-x86_64.sh && mkdir -p $(HOME)/cmake-3.16.2 && \
++	     ./cmake-3.16.2-Linux-x86_64.sh --skip-license --prefix=$(HOME)/cmake-3.16.2; \
++	 fi && \
++	 if [ ! -f $(HOME)/protoc-3.6.1/bin/protoc ]; then \
++	     mkdir -p $(HOME)/protoc-3.6.1 && cd $(HOME)/protoc-3.6.1 && \
++	     wget https://github.com/protocolbuffers/protobuf/releases/download/v3.6.1/protoc-3.6.1-linux-x86_64.zip && \
++	     unzip protoc-3.6.1-linux-x86_64.zip && sudo cp -rf include/google /usr/local/include/ && cd -; \
++	 fi && \
++	 CXX=$(CROSS_COMPILE)g++ CC=$(CROSS_COMPILE)gcc \
++	 ./build.sh --config RelWithDebInfo --arm64 --update --build --build_shared_lib --build_wheel --parallel \
++		--cmake_path=$(HOME)/cmake-3.16.2/bin/cmake  \
++		--path_to_protoc_exe=$(HOME)/protoc-3.6.1/bin/protoc \
++		--cmake_extra_defines ONNXRUNTIME_VERSION=$(cat ./VERSION_NUMBER) \
++		onnxruntime_USE_PREBUILT_PB=OFF \
++		onnxruntime_BUILD_UNIT_TESTS=ON \
++		CMAKE_CXX_FLAGS="-Wno-error=unused-parameter -I$(RFSDIR)/usr/aarch64-linux-gnu/include" \
++		CMAKE_NO_SYSTEM_FROM_IMPORTED=True onnxruntime_USE_MLAS=ON \
++		ZLIB_LIBRARY=$(RFSDIR)/lib/aarch64-linux-gnu/libz.so \
++		PNG_LIBRARY=$(RFSDIR)/usr/lib/aarch64-linux-gnu/libpng.so \
++		PYTHON_LIBRARY=$(RFSDIR)/usr/lib/aarch64-linux-gnu/libpython3.6m.so \
++		PYTHON_INCLUDE_DIR=$(RFSDIR)/usr/include/python3.6m && \
++	 cp -f build/Linux/*/libonnxruntime*.a build/Linux/*/onnx/libonnx*.a $(eIQDESTDIR)/usr/local/lib && \
++	 cp -f build/Linux/*/libonnxruntime.so $(eIQDESTDIR)/usr/local/lib && \
++	 mkdir -p $(eIQDESTDIR)/usr/share/onnxruntime && \
++	 cp -f build/Linux/*/dist/onnxruntime-*.whl $(eIQDESTDIR)/usr/share/onnxruntime/ && \
++	 cp -f build/Linux/*/onnxruntime_perf_test build/Linux/*/onnx_test_runner $(eIQDESTDIR)/usr/local/bin/ && \
++	 mv $(eIQDESTDIR)/usr/share/onnxruntime/onnxruntime-0.4.0-cp36-cp36m-linux_x86_64.whl \
++	 $(eIQDESTDIR)/usr/share/onnxruntime/onnxruntime-0.4.0-cp36-cp36m-linux_aarch64.whl && \
++	 $(call fbprint_d,"onnxruntime")
++endif
++endif
++
++
++
++.PHONY: bazel
++bazel:
++	@if [ ! -f $(HOME)/bin/bazel ]; then \
++	     $(call fbprint_b,"bazel") && \
++	     mkdir -p $(HOME)/.bazel && cd $(HOME)/.bazel && \
++	     [ ! -f $(HOME)/.bazel/bazel-0.15.0-installer-linux-x86_64.sh ] && \
++	     wget $(bazel_bin_url) || echo bazel installer exists && \
++	     chmod +x bazel-0.15.0-installer-linux-x86_64.sh && \
++	     ./bazel-0.15.0-installer-linux-x86_64.sh --user; \
++	     source $(HOME)/.bazel/bin/bazel-complete.bash && \
++	     $(call fbprint_d,"bazel"); \
++	 fi
++
++
++
++.PHONY: boost
++boost: dependency
++	@if [ ! -d $(eIQDESTDIR)/usr/local/include/boost ]; then \
++	     $(call fbprint_b,"boost") && \
++	     mkdir -p $(HOME)/.boost && cd $(HOME)/.boost && \
++	     if [ ! -f boost_1_64_0.tar.bz2 ]; then \
++		 wget $(boost_bin_url) && \
++		 tar xf boost_1_64_0.tar.bz2 --strip-components 1; \
++	     fi && \
++	     echo "using gcc : arm : $(CROSS_COMPILE)g++ ;" > user_config.jam && \
++	     ./bootstrap.sh --prefix=$(eIQDESTDIR)/usr/local && \
++	     ./b2 install -j$(JOBS) toolset=gcc-arm link=static cxxflags=-fPIC \
++	     --with-filesystem --with-test --with-log \
++	     --with-program_options --user-config=user_config.jam && \
++	     $(call fbprint_d,"boost"); \
++	 fi
++
++
++
++
++dependency:
++	@export PATH="$(PATH):$(HOME)/bin" && \
++	 mkdir -p $(eIQDESTDIR)/usr/local/bin && mkdir -p $(eIQDESTDIR)/usr/local/include && \
++	 mkdir -p $(eIQDESTDIR)/usr/local/lib && mkdir -p $(eIQDESTDIR)/usr/share/tensorflow && \
++	 if [ ! -d /usr/share/doc/libboost-all-dev ]; then \
++	     sudo apt update && sudo apt install -y $(CAFFE_DEPENDENT_PKG); \
++	 fi; \
++	 if [ ! -d /usr/share/doc/python3-wheel ]; then \
++	     sudo apt update && sudo apt install -y $(TENSORFLOW_DEP_APT_PKG); \
++	 fi; \
++	 if [ ! -d /usr/local/lib/python3.6/dist-packages/keras_applications -a \
++	      ! -d ~/.local/lib/python3.6/site-packages/keras_applications ]; then \
++	    pip3 install $(TENSORFLOW_DEP_PIP_PKG); \
++	 fi; \
++	 if [ ! -f $(RFSDIR)/etc/buildinfo ]; then $(call build_dependent_rfs); fi; \
++	 if [ ! -f $(RFSDIR)/usr/lib/aarch64-linux-gnu/libavresample.so -a $(VIRTABLE) = y ]; then \
++	     [ -n "$(http_proxy)" ] && sudo cp -f /etc/apt/apt.conf $(RFSDIR)/etc/apt/; \
++	     sudo chroot $(RFSDIR) apt update && sudo chroot $(RFSDIR) apt install -y $(TARGET_DEPENDENT_PKG); \
++	 fi
++
++
++
++crosspyconfig:
++	@if [ ! -f /usr/aarch64-linux-gnu/include/aarch64-linux-gnu/python3.6m/pyconfig.h ]; then \
++	     [ ! -f $(RFSDIR)/usr/include/aarch64-linux-gnu/python3.6m/pyconfig.h ] && \
++	     $(call build_dependent_rfs) || echo pyconfig.h exists && \
++	     sudo mkdir -p /usr/aarch64-linux-gnu/include/aarch64-linux-gnu/python3.6m && \
++	     sudo cp -f $(RFSDIR)/usr/include/aarch64-linux-gnu/python3.6m/pyconfig.h \
++	     /usr/aarch64-linux-gnu/include/aarch64-linux-gnu/python3.6m; \
++	fi
++
++
++
++eiq_install:
++	@[ ! -f $(RFSDIR)/etc/buildinfo ] && echo building dependent $(RFSDIR) && \
++	 flex-builder -i mkrfs -r ubuntu:$(DISTROSCALE) -a $(DESTARCH) -f $(CONFIGLIST) || \
++	 echo target $(RFSDIR) exist && \
++	 $(call fbprint_n,"Installing eIQ from $(eIQDESTDIR) to target $(RFSDIR) ...") && \
++	 cp_args="-Prf --preserve=mode,timestamps --no-preserve=ownership" && \
++	 sudo cp $$cp_args $(eIQDESTDIR)/* $(RFSDIR)/ && \
++	 [ $(VIRTABLE) = y -a -f $(eIQDESTDIR)/usr/share/tensorflow/tensorflow-1.12.3-cp36-cp36m-linux_aarch64.whl ] && \
++	 $(call fbprint_n,"Installing tensorflow to target $(RFSDIR) which can be directly deployed on $(DESTARCH) board") && \
++	 [ $(HOSTARCH) != aarch64 ] && chrootopt="sudo chroot $(RFSDIR)" || echo Running on $(HOSTARCH) && \
++	 $$chrootopt python3 -m pip install /usr/share/tensorflow/tensorflow-1.12.3-cp36-cp36m-linux_aarch64.whl || \
++	 ls -l $(eIQDESTDIR)/usr/share/tensorflow/*.whl && \
++	 [ $(VIRTABLE) = y -a -f $(eIQDESTDIR)/usr/share/onnxruntime/onnxruntime-0.4.0-cp36-cp36m-linux_aarch64.whl ] && \
++	 $$chrootopt python3 -m pip install /usr/share/onnxruntime/onnxruntime-0.4.0-cp36-cp36m-linux_aarch64.whl || \
++	 ls -l $(eIQDESTDIR)/usr/share/onnxruntime/onnxruntime-*.whl && \
++	 $(call fbprint_n,"eIQ installation completed successfully")
++
++
++
++
++eiq_pack:
++	@$(call fbprint_n,"Packing $(eIQDESTDIR)") && cd $(eIQDESTDIR) && \
++	 sudo tar czf $(FBOUTDIR)/images/app_components_$(DESTARCH)_eIQ.tgz * && \
++	 touch $(eIQDIR)/.eiqdone && \
++	 $(call fbprint_d,"$(FBOUTDIR)/images/app_components_$(DESTARCH)_eIQ.tgz")
++
++
++
++eiq_clean:
++	@echo Cleaning for eIQ components ... && \
++	rm -rf $(eIQDIR)/armcl/build $(eIQDIR)/armnn/build $(eIQDIR)/opencv/build \
++	    $(eIQDIR)/caffe/.build_release $(eIQDIR)/onnxruntime/build \
++	    $(eIQDIR)/flatbuffer/{CMakeFiles,libflatbuffers.*,*.cmake,Makefile,CMakeCache.txt,flat*} \
++	    $(eIQDESTDIR) $(eIQDIR)/protobuf/*build $(eIQDIR)/tflite/tensorflow/lite/tools/make/gen \
++	    $(eIQDIR)/.eiqdone && \
++	$(call fbprint_n,"Clean eIQ components")
++
++
++
++eiq_repo_fetch:
++	@echo -e "\nfetch eIQ repositories: $(eIQ_REPO_LIST)"
++	@$(call repo-update,fetch,$(eIQ_REPO_LIST),apps/eiq)
++
++eiq_repo_update_branch:
++	@echo -e "\neIQ repositories update for branch"
++	@$(call repo-update,branch,$(eIQ_REPO_LIST),apps/eiq)
++
++eiq_repo_update_tag:
++	@echo -e "\neIQ repositories update for tag"
++	@$(call repo-update,tag,$(eIQ_REPO_LIST),apps/eiq)
++
++eiq_repo_update_latest:
++	@echo -e "\neIQ repositories update to latest HEAD commit"
++	@$(call repo-update,update,$(eIQ_REPO_LIST),apps/eiq)
++
++eiq_repo_update_commit:
++	@echo -e "\neIQ repositories update to specified commit ID"
++	@$(call repo-update,commit,$(eIQ_REPO_LIST),apps/eiq)
+diff --git a/packages/apps/eiq/patch/Add-cross-build-for-arm64-tensorflow.patch b/packages/apps/eiq/patch/Add-cross-build-for-arm64-tensorflow.patch
+new file mode 100644
+index 0000000..5a97fa0
+--- /dev/null
++++ b/packages/apps/eiq/patch/Add-cross-build-for-arm64-tensorflow.patch
+@@ -0,0 +1,375 @@
++From 992b8ff8ad34981a713b88beccb25b7b0ca367be Mon Sep 17 00:00:00 2001
++From: Shengzhou Liu <Shengzhou.Liu@nxp.com>
++Date: Mon, 4 Nov 2019 15:26:34 +0800
++Subject: [PATCH] Add cross build support for aarch64 in tensorflow
++
++---
++ WORKSPACE                                     |   6 +
++ aarch64_compiler.BUILD                        |  79 +++++++++++
++ .../contrib/lite/kernels/internal/BUILD       |   1 -
++ .../tools/pip_package/build_pip_package.sh    |  19 ++-
++ third_party/aws.BUILD                         |   4 +-
++ tools/aarch64_compiler/BUILD                  |  27 ++++
++ tools/aarch64_compiler/CROSSTOOL              | 124 ++++++++++++++++++
++ 7 files changed, 256 insertions(+), 4 deletions(-)
++ create mode 100644 aarch64_compiler.BUILD
++ create mode 100644 tools/aarch64_compiler/BUILD
++ create mode 100644 tools/aarch64_compiler/CROSSTOOL
++
++diff --git a/WORKSPACE b/WORKSPACE
++index 17961829a6..30841c4419 100644
++--- a/WORKSPACE
+++++ b/WORKSPACE
++@@ -79,3 +79,9 @@ new_http_archive(
++         "http://download.tensorflow.org/models/speech_commands_v0.01.zip",
++     ],
++ )
+++
+++new_local_repository(
+++    name = "aarch64_compiler",
+++    path = "/",
+++    build_file = "aarch64_compiler.BUILD",
+++)
++diff --git a/aarch64_compiler.BUILD b/aarch64_compiler.BUILD
++new file mode 100644
++index 0000000000..b5c1cc827c
++--- /dev/null
+++++ b/aarch64_compiler.BUILD
++@@ -0,0 +1,79 @@
+++package(default_visibility = ['//visibility:public'])
+++
+++filegroup(
+++  name = 'gcc',
+++  srcs = [
+++    'usr/bin/aarch64-linux-gnu-gcc',
+++  ],
+++)
+++
+++filegroup(
+++  name = 'ar',
+++  srcs = [
+++    'usr/bin/aarch64-linux-gnu-ar',
+++  ],
+++)
+++
+++filegroup(
+++  name = 'ld',
+++  srcs = [
+++    'usr/bin/aarch64-linux-gnu-ld',
+++  ],
+++)
+++
+++filegroup(
+++  name = 'nm',
+++  srcs = [
+++    'usr/bin/aarch64-linux-gnu-nm',
+++  ],
+++)
+++
+++filegroup(
+++  name = 'objcopy',
+++  srcs = [
+++    'usr/bin/aarch64-linux-gnu-objcopy',
+++  ],
+++)
+++
+++filegroup(
+++  name = 'objdump',
+++  srcs = [
+++    'usr/bin/aarch64-linux-gnu-objdump',
+++  ],
+++)
+++
+++filegroup(
+++  name = 'strip',
+++  srcs = [
+++    'usr/bin/aarch64-linux-gnu-strip',
+++  ],
+++)
+++
+++filegroup(
+++  name = 'as',
+++  srcs = [
+++    'usr/bin/aarch64-linux-gnu-as',
+++  ],
+++)
+++
+++filegroup(
+++  name = 'compiler_pieces',
+++  srcs = glob([
+++    'usr/lib/gcc-cross/aarch64-linux-gnu/7/**',
+++    'usr/aarch64-linux-gnu/**',
+++  ]),
+++)
+++
+++filegroup(
+++  name = 'compiler_components',
+++  srcs = [
+++    ':gcc',
+++    ':ar',
+++    ':ld',
+++    ':nm',
+++    ':objcopy',
+++    ':objdump',
+++    ':strip',
+++    ':as',
+++  ],
+++)
++diff --git a/tensorflow/contrib/lite/kernels/internal/BUILD b/tensorflow/contrib/lite/kernels/internal/BUILD
++index afb5ec05df..4a45afe51a 100644
++--- a/tensorflow/contrib/lite/kernels/internal/BUILD
+++++ b/tensorflow/contrib/lite/kernels/internal/BUILD
++@@ -21,7 +21,6 @@ HARD_FP_FLAGS_IF_APPLICABLE = select({
++ NEON_FLAGS_IF_APPLICABLE = select({
++     ":arm": [
++         "-O3",
++-        "-mfpu=neon",
++     ],
++     ":armeabi-v7a": [
++         "-O3",
++diff --git a/tensorflow/tools/pip_package/build_pip_package.sh b/tensorflow/tools/pip_package/build_pip_package.sh
++index c62271c5cb..a413c13ecc 100755
++--- a/tensorflow/tools/pip_package/build_pip_package.sh
+++++ b/tensorflow/tools/pip_package/build_pip_package.sh
++@@ -149,6 +149,7 @@ function build_wheel() {
++   TMPDIR="$1"
++   DEST="$2"
++   PKG_NAME_FLAG="$3"
+++  PLAT_NAME_FLAG="$4"
++ 
++   # Before we leave the top-level directory, make sure we know how to
++   # call python.
++@@ -159,7 +160,7 @@ function build_wheel() {
++   pushd ${TMPDIR} > /dev/null
++   rm -f MANIFEST
++   echo $(date) : "=== Building wheel"
++-  "${PYTHON_BIN_PATH:-python}" setup.py bdist_wheel ${PKG_NAME_FLAG} >/dev/null
+++  "${PYTHON_BIN_PATH:-python}" setup.py bdist_wheel ${PKG_NAME_FLAG} ${PLAT_NAME_FLAG} >/dev/null
++   mkdir -p ${DEST}
++   cp dist/* ${DEST}
++   popd > /dev/null
++@@ -179,6 +180,7 @@ function usage() {
++   echo ""
++   echo "  Options:"
++   echo "    --project_name <name> set project name to name"
+++  echo "    --plat_name <name>    set plantform name to name"
++   echo "    --gpu                 build tensorflow_gpu"
++   echo "    --gpudirect           build tensorflow_gpudirect"
++   echo "    --nightly_flag        build tensorflow nightly"
++@@ -194,6 +196,7 @@ function main() {
++   SRCDIR=""
++   DSTDIR=""
++   CLEANSRC=1
+++  PLATFORM_NAME=""
++   while true; do
++     if [[ "$1" == "--help" ]]; then
++       usage
++@@ -210,6 +213,12 @@ function main() {
++         break
++       fi
++       PROJECT_NAME="$1"
+++    elif [[ "$1" == "--plat_name" ]]; then
+++      shift
+++      if [[ -z "$1" ]]; then
+++        break
+++      fi
+++      PLATFORM_NAME="$1"
++     elif [[ "$1" == "--src" ]]; then
++       shift
++       SRCDIR="$(real_path $1)"
++@@ -255,7 +264,13 @@ function main() {
++     PKG_NAME_FLAG="--project_name tensorflow_gpu"
++   fi
++ 
++-  build_wheel "$SRCDIR" "$DSTDIR" "$PKG_NAME_FLAG"
+++  if [[ -n ${PLATFORM_NAME} ]]; then
+++    PLAT_NAME_FLAG="--plat-name ${PLATFORM_NAME}"
+++  else
+++    PLAT_NAME_FLAG=""
+++  fi
+++
+++  build_wheel "$SRCDIR" "$DSTDIR" "$PKG_NAME_FLAG" "$PLAT_NAME_FLAG"
++ 
++   if [[ $CLEANSRC -ne 0 ]]; then
++     rm -rf "${TMPDIR}"
++diff --git a/third_party/aws.BUILD b/third_party/aws.BUILD
++index 5426f79e46..e4fcbdd6c4 100644
++--- a/third_party/aws.BUILD
+++++ b/third_party/aws.BUILD
++@@ -24,7 +24,9 @@ cc_library(
++         "@org_tensorflow//tensorflow:raspberry_pi_armeabi": glob([
++             "aws-cpp-sdk-core/source/platform/linux-shared/*.cpp",
++         ]),
++-        "//conditions:default": [],
+++        "//conditions:default":  glob([
+++            "aws-cpp-sdk-core/source/platform/linux-shared/*.cpp",
+++        ]),
++     }) + glob([
++         "aws-cpp-sdk-core/include/**/*.h",
++         "aws-cpp-sdk-core/source/*.cpp",
++diff --git a/tools/aarch64_compiler/BUILD b/tools/aarch64_compiler/BUILD
++new file mode 100644
++index 0000000000..6911080170
++--- /dev/null
+++++ b/tools/aarch64_compiler/BUILD
++@@ -0,0 +1,27 @@
+++package(default_visibility = ["//visibility:public"])
+++
+++cc_toolchain_suite(
+++  name = 'toolchain',
+++  toolchains = {
+++  'aarch64|compiler':':gcc-linux-aarch64',
+++  },
+++)
+++
+++filegroup(
+++    name = "empty",
+++    srcs = [],
+++)
+++
+++cc_toolchain(
+++  name = 'gcc-linux-aarch64',
+++  all_files = ':empty',
+++  compiler_files = ':empty',
+++  cpu = 'aarch64',
+++  dwp_files = ':empty',
+++  dynamic_runtime_libs = [':empty'],
+++  linker_files = ':empty',
+++  objcopy_files = 'empty',
+++  static_runtime_libs = [':empty'],
+++  strip_files = 'empty',
+++  supports_param_files = 1,
+++)
++diff --git a/tools/aarch64_compiler/CROSSTOOL b/tools/aarch64_compiler/CROSSTOOL
++new file mode 100644
++index 0000000000..0681fbb87c
++--- /dev/null
+++++ b/tools/aarch64_compiler/CROSSTOOL
++@@ -0,0 +1,124 @@
+++major_version: "local"
+++minor_version: ""
+++default_target_cpu: "aarch64"
+++
+++default_toolchain {
+++  cpu: "aarch64"
+++  toolchain_identifier: "aarch64-linux-gnu"
+++}
+++
+++toolchain {
+++  abi_version: "aarch64"
+++  abi_libc_version: "aarch64"
+++  builtin_sysroot: ""
+++  compiler: "compiler"
+++  host_system_name: "aarch64"
+++  needsPic: true
+++  supports_gold_linker: true
+++  supports_incremental_linker: false
+++  supports_fission: false
+++  supports_interface_shared_objects: false
+++  supports_normalizing_ar: false
+++  supports_start_end_lib: true
+++  target_libc: "aarch64"
+++  target_cpu: "aarch64"
+++  target_system_name: "aarch64"
+++  toolchain_identifier: "aarch64-linux-gnu"
+++
+++  cxx_flag: "-std=c++11"
+++  linker_flag: "-lstdc++"
+++  linker_flag: "-lm"
+++  linker_flag: "-fuse-ld=gold"
+++  linker_flag: "-Wl,-no-as-needed"
+++  linker_flag: "-Wl,-z,relro,-z,now"
+++  linker_flag: "-pass-exit-codes"
+++
+++  cxx_builtin_include_directory: "/usr/aarch64-linux-gnu/include/c++/7/"
+++  cxx_builtin_include_directory: "/usr/aarch64-linux-gnu/include/c++/7/backward"
+++  cxx_builtin_include_directory: "/usr/aarch64-linux-gnu/include/"
+++  cxx_builtin_include_directory: "/usr/lib/gcc-cross/aarch64-linux-gnu/7/include"
+++  cxx_builtin_include_directory: "/usr/lib/gcc-cross/aarch64-linux-gnu/7/include-fixed"
+++
+++  objcopy_embed_flag: "-I"
+++  objcopy_embed_flag: "binary"
+++
+++  unfiltered_cxx_flag: "-fno-canonical-system-headers"
+++  unfiltered_cxx_flag: "-Wno-builtin-macro-redefined"
+++  unfiltered_cxx_flag: "-D__DATE__=\"redacted\""
+++  unfiltered_cxx_flag: "-D__TIMESTAMP__=\"redacted\""
+++  unfiltered_cxx_flag: "-D__TIME__=\"redacted\""
+++  compiler_flag: "-U_FORTIFY_SOURCE"
+++  compiler_flag: "-fstack-protector"
+++  compiler_flag: "-Wall"
+++  compiler_flag: "-Wunused-but-set-parameter"
+++  compiler_flag: "-Wno-free-nonheap-object"
+++  compiler_flag: "-fno-omit-frame-pointer"
+++
+++  tool_path { name: "ld" path: "/usr/bin/aarch64-linux-gnu-ld" }
+++  tool_path { name: "cpp" path: "/usr/bin/aarch64-linux-gnu-cpp" }
+++  tool_path { name: "dwp" path: "/usr/bin/aarch64-linux-gnu-dwp" }
+++  tool_path { name: "gcov" path: "/usr/bin/aarch64-linux-gnu-gcov" }
+++  tool_path { name: "nm" path: "/usr/bin/aarch64-linux-gnu-nm" }
+++  tool_path { name: "objcopy" path: "/usr/bin/aarch64-linux-gnu-objcopy" }
+++  tool_path { name: "objdump" path: "/usr/bin/aarch64-linux-gnu-objdump" }
+++  tool_path { name: "strip" path: "/usr/bin/aarch64-linux-gnu-strip" }
+++  tool_path { name: "gcc" path: "/usr/bin/aarch64-linux-gnu-gcc" }
+++  tool_path { name: "ar" path: "/usr/bin/aarch64-linux-gnu-ar" }
+++
+++  compilation_mode_flags {
+++    mode: DBG
+++    # Enable debug symbols.
+++    compiler_flag: "-g"
+++  }
+++  compilation_mode_flags {
+++    mode: OPT
+++
+++    # No debug symbols.
+++    # Maybe we should enable https://gcc.gnu.org/wiki/DebugFission for opt or
+++    # even generally? However, that can't happen here, as it requires special
+++    # handling in Bazel.
+++    compiler_flag: "-g0"
+++
+++    # Conservative choice for -O
+++    # -O3 can increase binary size and even slow down the resulting binaries.
+++    # Profile first and / or use FDO if you need better performance than this.
+++    compiler_flag: "-O2"
+++    compiler_flag: "-D_FORTIFY_SOURCE=1"
+++
+++    # Disable assertions
+++    compiler_flag: "-DNDEBUG"
+++
+++    # Removal of unused code and data at link time (can this increase binary size in some cases?).
+++    compiler_flag: "-ffunction-sections"
+++    compiler_flag: "-fdata-sections"
+++    linker_flag: "-Wl,--gc-sections"
+++  }
+++  linking_mode_flags { mode: DYNAMIC }
+++
+++    feature {
+++      name: 'coverage'
+++      provides: 'profile'
+++      flag_set {
+++        action: 'preprocess-assemble'
+++        action: 'c-compile'
+++        action: 'c++-compile'
+++        action: 'c++-header-parsing'
+++        action: 'c++-header-preprocessing'
+++        action: 'c++-module-compile'
+++        flag_group {
+++        flag: '-fprofile-arcs'
+++        flag: '-ftest-coverage'
+++        }
+++      }
+++
+++      flag_set {
+++        action: 'c++-link-interface-dynamic-library'
+++        action: 'c++-link-dynamic-library'
+++        action: 'c++-link-executable'
+++        flag_group {
+++        flag: '-lgcov'
+++        }
+++      }
+++    }
+++
+++}
++-- 
++2.17.1
++
+diff --git a/packages/apps/generic/generic.mk b/packages/apps/generic/generic.mk
+new file mode 100644
+index 0000000..75dcac2
+--- /dev/null
++++ b/packages/apps/generic/generic.mk
+@@ -0,0 +1,93 @@
++#
++# Copyright 2017-2019 NXP
++#
++# SPDX-License-Identifier: BSD-3-Clause
++#
++#
++# SDK Generic Components
++#
++
++GENERIC_REPO_LIST = iperf cjson docker_ce
++GENDIR = $(PACKAGES_PATH)/apps/generic
++
++generic: $(GENERIC_REPO_LIST) misc
++
++
++
++.PHONY: iperf
++iperf:
++ifeq ($(CONFIG_APP_IPERF), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = lite ] && exit || \
++	 $(call fbprint_b,"iperf") && $(call fetch-git-tree,iperf,apps/generic) && \
++	 cd $(GENDIR)/iperf && export CC=aarch64-linux-gnu-gcc && \
++	 export CXX=aarch64-linux-gnu-g++ && ./configure --host=aarch64 && \
++	 make && sudo make install DESTDIR=$(DESTDIR) && $(call fbprint_d,"iperf")
++endif
++endif
++
++
++.PHONY: cjson
++cjson:
++ifeq ($(CONFIG_APP_CJSON), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu -a $(DISTROTYPE) != yocto ] && exit || \
++	 $(call fbprint_b,"cjson") && $(call fetch-git-tree,cjson,apps/generic) && \
++	 cd $(GENDIR)/cjson && export CC=$(CROSS_COMPILE)gcc && \
++	 mkdir -p build && cd build && cmake -DCMAKE_INSTALL_PREFIX=/usr/local .. && \
++	 $(MAKE) && sudo $(MAKE) install DESTDIR=$(RFSDIR) && $(call fbprint_d,"cjson")
++endif
++endif
++
++
++.PHONY: docker_ce
++docker_ce:
++ifeq ($(CONFIG_APP_DOCKER_CE), y)
++ifeq ($(DISTROTYPE), ubuntu)
++	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = lite ] && exit || \
++	 $(call fbprint_b,"docker_ce") && $(call fetch-git-tree,docker_ce,apps/generic)
++	@if [ ! -d $(GENDIR)/docker_ce ]; then \
++	     mkdir -p $(GENDIR)/docker_ce && cd $(GENDIR)/docker_ce && \
++	     curl -R -O -f -k $(docker_ce_bin_url) && tar xf docker-ce-bin-v18.09.6.tar.gz --strip-components 1; \
++	 fi && \
++	 if [ $(DESTARCH) = arm32 ]; then tarch=armhf; else tarch=$(DESTARCH); fi && \
++	 if [ -f $(RFSDIR)/usr/bin/dockerd-ce ]; then $(call fbprint_n,"docker-ce was already installed") && exit; fi && \
++	 if [ ! -d $(RFSDIR)/usr/lib ]; then $(call build_dependent_rfs); fi && \
++	 if [ $(DISTROTYPE) = ubuntu -a $(DISTROSCALE) != lite -a -d $(GENDIR)/docker_ce ]; then \
++	     sudo cp -f $(GENDIR)/docker_ce/containerd/containerd.io_1.2.4_$${tarch}.deb $(RFSDIR) && \
++	     sudo cp -f $(GENDIR)/docker_ce/docker-ce/ubuntu-bionic/$$tarch/*.deb $(RFSDIR) && \
++	     [ $(VIRTABLE) = n ] && echo unable to run chroot in this environment && exit || \
++	     sudo chroot $(RFSDIR) dpkg -i containerd.io_1.2.4_$${tarch}.deb && \
++	     sudo chroot $(RFSDIR) dpkg -i docker-ce-cli_v18.09.6-ubuntu-bionic_$${tarch}.deb && \
++	     sudo chroot $(RFSDIR) dpkg -i docker-ce_v18.09.6-ubuntu-bionic_$${tarch}.deb && \
++	     sudo rm -f $(RFSDIR)/*.deb && $(call fbprint_d,"docker_ce"); \
++	 fi
++endif
++endif
++
++
++
++misc:
++	@$(CROSS_COMPILE)gcc $(FBDIR)/packages/rfs/misc/ccsr.c -o $(DESTDIR)/usr/local/bin/ccsr
++
++
++
++generic_repo_fetch:
++	@echo -e "\nfetch generic repositories: $(GENERIC_REPO_LIST)"
++	@$(call repo-update,fetch,$(GENERIC_REPO_LIST),apps/generic)
++
++generic_repo_update_branch:
++	@echo -e "\ngeneric repositories update for branch"
++	@$(call repo-update,branch,$(GENERIC_REPO_LIST),apps/generic)
++
++generic_repo_update_tag:
++	@echo -e "\ngeneric repositories update for tag"
++	@$(call repo-update,tag,$(GENERIC_REPO_LIST),apps/generic)
++
++generic_repo_update_latest:
++	@echo -e "\ngeneric repositories update to latest HEAD commit"
++	@$(call repo-update,update,$(GENERIC_REPO_LIST),apps/generic)
++
++generic_repo_update_commit:
++	@echo -e "\ngeneric repositories update to specified commit ID"
++	@$(call repo-update,commit,$(GENERIC_REPO_LIST),apps/generic)
+diff --git a/packages/apps/multimedia/multimedia.mk b/packages/apps/multimedia/multimedia.mk
+new file mode 100644
+index 0000000..942eb30
+--- /dev/null
++++ b/packages/apps/multimedia/multimedia.mk
+@@ -0,0 +1,139 @@
++#
++# Copyright 2017-2019 NXP
++#
++# SPDX-License-Identifier: BSD-3-Clause
++#
++#
++# SDK Multi-Media Components
++#
++
++MULTIMEDIA_REPO_LIST = wayland wayland_protocols libdrm gpulib weston
++MMDIR = $(PACKAGES_PATH)/apps/multimedia
++
++multimedia: $(MULTIMEDIA_REPO_LIST)
++
++
++.PHONY: wayland
++wayland:
++ifeq ($(CONFIG_APP_WAYLAND), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = lite ] && exit || \
++	 $(call fbprint_b,"wayland") && $(call fetch-git-tree,wayland,apps/multimedia) && \
++	 if [ $(DISTROTYPE) != ubuntu ]; then echo wayland is not supported on $(DISTROTYPE) yet; exit; fi && \
++	 export CC="$(CROSS_COMPILE)gcc --sysroot=$(RFSDIR)" && export PKG_CONFIG_SYSROOT_DIR=$(RFSDIR) && \
++	 export PKG_CONFIG_LIBDIR=$(RFSDIR)/usr/lib/aarch64-linux-gnu/pkgconfig && cd $(MMDIR)/wayland && \
++	 ./autogen.sh --prefix=/usr/local --host=aarch64-linux-gnu --disable-documentation --with-host-scanner && \
++	 $(MAKE) && $(MAKE) install && $(call fbprint_d,"wayland")
++endif
++endif
++
++
++.PHONY: wayland_protocols
++wayland_protocols:
++ifeq ($(CONFIG_APP_WAYLAND_PROTOCOLS), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = lite ] && exit || \
++	 $(call fbprint_b,"wayland_protocols") && $(call fetch-git-tree,wayland_protocols,apps/multimedia) && \
++	 cd $(MMDIR)/wayland_protocols && ./autogen.sh --prefix=/usr --host=aarch64-linux-gnu && \
++	 $(MAKE) && $(MAKE) install && $(call fbprint_d,"wayland_protocols")
++endif
++endif
++
++
++.PHONY: libdrm
++libdrm:
++ifeq ($(CONFIG_APP_LIBDRM), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = lite ] && exit || \
++	 $(call fbprint_b,"libdrm") && $(call fetch-git-tree,libdrm,apps/multimedia) && \
++	 export CC="$(CROSS_COMPILE)gcc --sysroot=$(RFSDIR)" && cd $(MMDIR)/libdrm && \
++	 ./autogen.sh --prefix=/usr/local --host=aarch64-linux-gnu --disable-vc4 \
++	 --enable-vivante-experimental-api --disable-freedreno --disable-vmwgfx --disable-nouveau \
++	 --disable-amdgpu --disable-radeon --disable-intel && $(MAKE) && $(MAKE) install && \
++	 cp tests/modetest/.libs/modetest $(DESTDIR)/usr/local/bin && \
++	 $(call fbprint_d,"libdrm")
++endif
++endif
++
++
++.PHONY: gpulib
++gpulib:
++ifeq ($(CONFIG_APP_GPULIB), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = lite ] && exit || \
++	 $(call fbprint_b,"gpulib") && $(call fetch-git-tree,gpulib,apps/multimedia)
++	@if [ ! -d $(MMDIR)/gpulib ]; then \
++	     cd $(MMDIR) && echo Downloading $(gpulib_bin_url) && \
++	     curl -R -k -f $(gpulib_bin_url) -o gpulib.bin && chmod +x gpulib.bin && \
++	     ./gpulib.bin --auto-accept && mv gpulib-* gpulib && rm -f gpulib.bin; \
++	 fi && \
++	 cd $(MMDIR)/gpulib/ls1028a/linux && install -d $(DESTDIR)/opt && \
++	 install -d $(DESTDIR)/usr/local/include && install -d $(DESTDIR)/usr/local/lib && \
++	 cp -a gpu-demos/opt/viv_samples/* $(DESTDIR)/opt && \
++	 cp -a gpu-core/usr/include/* $(DESTDIR)/usr/local/include && \
++	 cp -a gpu-core/usr/lib/* $(DESTDIR)/usr/local/lib && \
++	 $(call fbprint_d,"gpulib")
++endif
++endif
++
++
++.PHONY: weston
++weston:
++ifeq ($(CONFIG_APP_WESTON), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = lite ] && exit || \
++	 $(call fbprint_b,"weston") && $(call fetch-git-tree,weston,apps/multimedia) && \
++	 if [ ! -f $(RFSDIR)/usr/lib/aarch64-linux-gnu/libpng.so ]; then $(call build_dependent_rfs); fi && \
++	 if [ ! -d $(DESTDIR)/usr/local/include/libdrm ]; then flex-builder -c libdrm -r $(DISTROTYPE):$(DISTROSCALE) -f $(CONFIGLIST); fi && \
++	 if [ ! -f $(DESTDIR)/usr/local/include/wayland-client.h ]; then flex-builder -c wayland -r $(DISTROTYPE):$(DISTROSCALE) -f $(CONFIGLIST); fi && \
++	 if [ ! -d $(DESTDIR)/usr/share/wayland-protocols ]; then flex-builder -c wayland_protocols -r $(DISTROTYPE):$(DISTROSCALE) -f $(CONFIGLIST); fi && \
++	 if [ ! -d $(DESTDIR)/usr/local/include/EGL ]; then flex-builder -c gpulib -r $(DISTROTYPE):$(DISTROSCALE) -f $(CONFIGLIST); fi && \
++	 if [ ! -d /usr/local/lib/python3.6/dist-packages/mesonbuild -o ! -d /usr/local/lib/python3.6/dist-packages/ninja ]; then sudo pip3 install meson ninja; fi && \
++	 if [ ! -f /usr/local/bin/wayland-scanner ]; then sudo ln -sf /usr/bin/wayland-scanner /usr/local/bin/wayland-scanner; fi && \
++	 sudo cp -Prf --preserve=mode,timestamps $(DESTDIR)/usr/* $(RFSDIR)/usr/ && \
++	 sudo sed -i -e "s#'/usr/local/lib'#'$(RFSDIR)/usr/local/lib'#g" -e "s# /usr/local/lib# $(RFSDIR)/usr/local/lib#g" $(RFSDIR)/usr/local/lib/*.la && \
++	 if [ $(VIRTABLE) = y ]; then sudo chroot $(RFSDIR) ldconfig; fi && cd $(MMDIR)/weston && rm -rf build && mkdir build && \
++	 sed -e 's%@TARGET_CROSS@%$(CROSS_COMPILE)%g' -e 's%@TARGET_ARCH@%aarch64%g' \
++	     -e 's%@TARGET_CPU@%cortex-a72%g' -e 's%@TARGET_ENDIAN@%little%g' -e 's%@STAGING_DIR@%$(RFSDIR)%g' \
++	     $(FBDIR)/packages/rfs/misc/meson/cross-compilation.conf > $(MMDIR)/weston/build/cross-compilation.conf && \
++	 PKG_CONFIG_LIBDIR=$(RFSDIR)/usr/local/lib/pkgconfig:$(RFSDIR)/usr/lib/aarch64-linux-gnu/pkgconfig:$(RFSDIR)/usr/share/pkgconfig \
++	 PYTHONNOUSERSITE=y PKG_CONFIG_SYSROOT_DIR=$(RFSDIR) \
++	 meson --prefix=/usr/local --libdir=lib --default-library=shared --buildtype=release --cross-file=build/cross-compilation.conf \
++	 -Dsimple-dmabuf-drm=auto -Ddoc=false -Dbackend-drm-screencast-vaapi=false -Dbackend-rdp=false -Dcolor-management-lcms=false \
++	 -Dcolor-management-colord=false -Dpipewire=false -Dbackend-x11=false -Drenderer-g2d=false -Degl=true -Dimage-jpeg=false \
++	 -Dimage-webp=false -Dweston-launch=false -Dlauncher-logind=false -Dremoting=false -Ddemo-clients=false build && \
++	 PYTHONNOUSERSITE=y DESTDIR=$(DESTDIR) ninja -j9 -C build/ install && \
++	 if [ $(DISTROTYPE) = ubuntu -o $(DISTROTYPE) = debian ]; then \
++	     echo OPTARGS=\" \" | sudo tee $(RFSDIR)/etc/default/weston && sudo install -d $(RFSDIR)/etc/xdg/weston && \
++	     if [ $(SOCFAMILY) = IMX ]; then sudo sed -e 's%DP%HDMI-A%g' $(FBDIR)/packages/rfs/misc/weston/weston.ini > $(RFSDIR)/etc/xdg/weston/weston.ini; \
++	     else sudo cp $(FBDIR)/packages/rfs/misc/weston/weston.ini $(RFSDIR)/etc/xdg/weston/weston.ini; fi && \
++	     sudo install -m 755 $(FBDIR)/packages/rfs/misc/weston/weston.sh $(RFSDIR)/etc/profile.d/ && \
++	     sudo install $(FBDIR)/packages/rfs/misc/weston/weston.service $(RFSDIR)/lib/systemd/system/ && \
++	     sudo ln -sf /lib/systemd/system/weston.service $(RFSDIR)/etc/systemd/system/multi-user.target.wants/weston.service; \
++	 fi && \
++	 sudo sed -i -e "s#$(RFSDIR)##g" $(RFSDIR)/usr/local/lib/*.la && $(call fbprint_d,"weston")
++endif
++endif
++
++
++
++
++multimedia_repo_fetch:
++	@echo -e "\nfetch multimedia repositories: $(MULTIMEDIA_REPO_LIST)"
++	@$(call repo-update,fetch,$(MULTIMEDIA_REPO_LIST),apps/multimedia)
++
++multimedia_repo_update_branch:
++	@echo -e "\nmultimedia repositories update for branch"
++	@$(call repo-update,branch,$(MULTIMEDIA_REPO_LIST),apps/multimedia)
++
++multimedia_repo_update_tag:
++	@echo -e "\nmultimedia repositories update for tag"
++	@$(call repo-update,tag,$(MULTIMEDIA_REPO_LIST),apps/multimedia)
++
++multimedia_repo_update_latest:
++	@echo -e "\nmultimedia repositories update to latest HEAD commit"
++	@$(call repo-update,update,$(MULTIMEDIA_REPO_LIST),apps/multimedia)
++
++multimedia_repo_update_commit:
++	@echo -e "\nmultimedia repositories update to specified commit ID"
++	@$(call repo-update,commit,$(MULTIMEDIA_REPO_LIST),apps/multimedia)
+diff --git a/packages/apps/networking/networking.mk b/packages/apps/networking/networking.mk
+new file mode 100644
+index 0000000..4e696ca
+--- /dev/null
++++ b/packages/apps/networking/networking.mk
+@@ -0,0 +1,394 @@
++#
++# Copyright 2017-2019 NXP
++#
++# SPDX-License-Identifier: BSD-3-Clause
++#
++#
++# SDK Networking Components
++#
++
++
++NETWORKING_REPO_LIST = restool tsntool gpp_aioptool aiopsl flib fmlib fmc spc dpdk ovs_dpdk pktgen_dpdk ceetm dce qbman_userspace eth_config crconf
++NETDIR = $(PACKAGES_PATH)/apps/networking
++
++networking: $(NETWORKING_REPO_LIST)
++
++
++.PHONY: restool
++restool:
++ifeq ($(CONFIG_APP_RESTOOL), y)
++ifeq ($(DESTARCH),arm64)
++	@$(call fbprint_b,"restool") && $(call fetch-git-tree,restool,apps/networking) && \
++	 cd $(NETDIR)/restool && $(MAKE) && $(MAKE) install && \
++	 $(call fbprint_d,"restool")
++endif
++endif
++
++
++
++.PHONY: tsntool
++tsntool:
++ifeq ($(CONFIG_APP_TSNTOOL), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu -a $(DISTROTYPE) != yocto -o $(DISTROSCALE) = tiny ] && exit || \
++	 $(call fbprint_b,"tsntool") && $(call fetch-git-tree,tsntool,apps/networking) && \
++	 $(call fetch-git-tree,linux,linux) && \
++	 if [ $(DISTROTYPE) = ubuntu -a ! -f $(RFSDIR)/lib/aarch64-linux-gnu/libnl-genl-3.so ] || \
++	 [ $(DISTROTYPE) = yocto -a ! -f $(RFSDIR)/usr/lib/libnl-genl-3.so ]; then $(call build_dependent_rfs); fi && \
++	 [ ! -f $(RFSDIR)/usr/local/include/cjson/cJSON.h ] && \
++	 flex-builder -c cjson -a $(DESTARCH) -f $(CONFIGLIST) || echo cJSON.h exists && cd $(NETDIR)/tsntool && \
++	 export CC="$(CROSS_COMPILE)gcc --sysroot=$(RFSDIR)" && export PKG_CONFIG_SYSROOT_DIR=$(RFSDIR) && \
++	 export PKG_CONFIG_LIBDIR=$(RFSDIR)/usr/local/lib/pkgconfig:$(RFSDIR)/usr/lib/pkgconfig:$(RFSDIR)/usr/lib/aarch64-linux-gnu/pkgconfig && \
++	 mkdir -p include/linux && cp -f $(KERNEL_PATH)/include/uapi/linux/tsn.h include/linux && $(MAKE) clean && $(MAKE) && \
++	 install -d $(DESTDIR)/usr/local/bin && install -d $(DESTDIR)/usr/lib && \
++	 install -m 755 tsntool $(DESTDIR)/usr/local/bin/tsntool$$tsnver && \
++	 install -m 755 libtsn.so $(DESTDIR)/usr/lib/libtsn.so$$tsnver && \
++	 $(call fbprint_d,"tsntool")
++endif
++endif
++
++
++
++.PHONY: gpp_aioptool
++gpp_aioptool:
++ifeq ($(CONFIG_APP_GPP_AIOPTOOL), y)
++ifeq ($(DESTARCH),arm64)
++	@$(call fbprint_b,"gpp_aioptool") && $(call fetch-git-tree,gpp_aioptool,apps/networking) && \
++	 cd $(NETDIR)/gpp_aioptool && $(MAKE) clean && $(MAKE) && $(MAKE) install && \
++	 $(call fbprint_d,"gpp_aioptool")
++endif
++endif
++
++
++
++.PHONY: dpdk
++dpdk:
++ifeq ($(CONFIG_APP_DPDK), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu -a $(DISTROTYPE) != yocto -o  $(DISTROSCALE) = mate -o $(DISTROSCALE) = lite -o $(DISTROSCALE) = tiny ] &&  exit || \
++	 $(call fbprint_b,"dpdk") && $(call fetch-git-tree,dpdk,apps/networking) && \
++	 if [ ! -d $(RFSDIR)/usr/lib ]; then $(call build_dependent_rfs); fi && \
++	 if [ ! -f $(DESTDIR)/usr/local/lib/libcrypto.so ]; then \
++	     flex-builder -c openssl -r $(DISTROTYPE):$(DISTROSCALE) -a $(DESTARCH) -f $(CONFIGLIST); \
++	 fi && \
++	 curbrch=`cd $(KERNEL_PATH) && git branch | grep ^* | cut -d' ' -f2` && kerneloutdir=$(KERNEL_OUTPUT_PATH)/$$curbrch && \
++	 if [ ! -f $$kerneloutdir/include/generated/utsrelease.h ]; then $(call build_dependent_linux); fi && \
++	 libmodules=`ls -t $(FBOUTDIR)/linux/kernel/arm64/LS/lib/modules` && modversion=`echo $$libmodules | cut -d' ' -f1` && \
++	 cd $(NETDIR)/dpdk && export CROSS=$(CROSS_COMPILE) && export RTE_KERNELDIR=$$kerneloutdir && \
++	 export LDFLAGS="-L$(DESTDIR)/usr/local/lib -L$(RFSDIR)/lib/aarch64-linux-gnu -L$(RFSDIR)/usr/lib" && \
++	 export RTE_SDK=$(PWD) && export RTE_TARGET=arm64-dpaa-linuxapp-gcc && \
++	 export MODULES_VERSION=$$modversion && export OPENSSL_PATH=$(RFSDIR)/usr && \
++	 $(MAKE) install T=arm64-dpaa-linuxapp-gcc DESTDIR=$(DESTDIR)/usr/local CONFIG_RTE_EAL_IGB_UIO=n CONFIG_RTE_KNI_KMOD=y \
++		 CONFIG_RTE_LIBRTE_PMD_OPENSSL=y EXTRA_CFLAGS="-I$(DESTDIR)/usr/local/include -I$(RFSDIR)/usr/include/aarch64-linux-gnu" \
++		 EXTRA_LDFLAGS="-L$(DESTDIR)/usr/local/lib -L$(RFSDIR)/lib/aarch64-linux-gnu" && \
++	 if [ $(CONFIG_APP_VPP) = y ]; then \
++	     $(MAKE) install T=arm64-dpaa-linuxapp-gcc DESTDIR=$(DESTDIR)/usr/local/dpdk4vpp \
++		     CONFIG_RTE_EAL_IGB_UIO=n CONFIG_RTE_KNI_KMOD=y CONFIG_RTE_LIBRTE_PMD_OPENSSL=y \
++		     EXTRA_CFLAGS="-I$(DESTDIR)/usr/local/include -I$(RFSDIR)/usr/include/aarch64-linux-gnu -Ofast -fPIC -ftls-model=local-dynamic" \
++		     EXTRA_LDFLAGS="-L$(DESTDIR)/usr/local/lib -L$(DESTDIR)/usr/local/lib -L$(RFSDIR)/lib/aarch64-linux-gnu"; \
++	 fi && \
++	 if [ $(DISTROTYPE) != ubuntu -a $(DISTROTYPE) != yocto ]; then echo pktgen_dpdk is not supported on $(DISTROTYPE) yet; exit; fi && \
++	 $(call fbprint_n,"Building DPDK Examples ...") && cd examples && \
++	 export CROSS=$(CROSS_COMPILE) && export RTE_SDK=$(NETDIR)/dpdk && export RTE_TARGET=arm64-dpaa-linuxapp-gcc && \
++	 export OPENSSL_PATH=$(RFSDIR)/usr && export RTE_SDK_BIN=$(DESTDIR)/usr/local && \
++	 $(MAKE) -j$(JOBS) -C l2fwd-crypto CONFIG_RTE_LIBRTE_PMD_OPENSSL=y EXTRA_CFLAGS="-I$(RFSDIR)/usr/include/aarch64-linux-gnu" \
++		 EXTRA_LDFLAGS="-L$(DESTDIR)/usr/local/lib -L$(RFSDIR)/lib/aarch64-linux-gnu" && $(MAKE) -j$(JOBS) -C vhost && \
++	 $(MAKE) -j$(JOBS) -C ipsec-secgw CONFIG_RTE_LIBRTE_PMD_OPENSSL=y EXTRA_CFLAGS="-I$(DESTDIR)/usr/local/include" \
++		 EXTRA_LDFLAGS="-L$(DESTDIR)/usr/local/lib -L$(RFSDIR)/lib/aarch64-linux-gnu"  && \
++	 dpdk_examples_list="l2fwd l3fwd cmdif l2fwd-qdma ip_fragmentation ip_reassembly l2fwd-keepalive l3fwd-acl link_status_interrupt qdma_demo ethtool \
++	 multi_process/symmetric_mp multi_process/simple_mp multi_process/symmetric_mp_qdma timer skeleton rxtx_callbacks ipv4_multicast cmdline kni" && \
++	 for dpdkpkg in $$dpdk_examples_list; do $(MAKE) -j$(JOBS) -C $$dpdkpkg; done && \
++	 find . -perm -111 -a -type f | xargs -I {} cp {} $(DESTDIR)/usr/local/bin && \
++	 mv $(DESTDIR)/usr/local/bin/ethtool $(DESTDIR)/usr/local/bin/dpdk-ethtool && \
++	 mkdir -p $(DESTDIR)/usr/local/dpdk/cmdif/include && mkdir -p $(DESTDIR)/usr/local/dpdk/cmdif/lib && \
++	 cp cmdif/lib/client/fsl_cmdif_client.h cmdif/lib/server/fsl_cmdif_server.h cmdif/lib/shbp/fsl_shbp.h $(DESTDIR)/usr/local/dpdk/cmdif/include/ && \
++	 cp cmdif/lib/arm64-dpaa-linuxapp-gcc/librte_cmdif.a ${DESTDIR}/usr/local/dpdk/cmdif/lib/ && \
++	 mkdir -p $(DESTDIR)/usr/local/dpdk/examples/ipsec_secgw && cp -f ipsec-secgw/*.cfg ${DESTDIR}/usr/local/dpdk/examples/ipsec_secgw && \
++	 cp -f $(NETDIR)/dpdk/arm64-dpaa-linuxapp-gcc/kmod/rte_kni.ko ${DESTDIR}/usr/local/dpdk && rm -rf ${DESTDIR}/usr/local/home && \
++	 echo -e "\nInstalling dpdk-extras ...$(DESTDIR) " && cp -rf $(NETDIR)/dpdk/nxp/* $(DESTDIR)/usr/local/dpdk && \
++	 rm -rf $(DESTDIR)/usr/local/share/dpdk/examples && cd $(DESTDIR)/usr/local/bin && rm -f dpdk-pdump && rm -f dpdk-pmdinfo && \
++	 rm -f dpdk-procinfo && \
++	 $(call fbprint_d,"dpdk")
++endif
++endif
++
++
++
++.PHONY: vpp
++vpp:
++ifeq ($(CONFIG_APP_VPP), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = mate -o $(DISTROSCALE) = lite ] && exit || \
++	 $(call fbprint_b,"vpp") && $(call fetch-git-tree,vpp,apps/networking) && \
++	 if [ ! -d $(RFSDIR)/lib/aarch64-linux-gnu ]; then $(call build_dependent_rfs); fi && \
++	 test -d $(DESTDIR)/usr/local/dpdk4vpp || flex-builder -c dpdk -f $(CONFIGLIST); \
++	 export CROSS_PREFIX=aarch64-linux-gnu && export CROSS_TOOLCHAIN=/usr && \
++	 export CROSS_SYSROOT=$(RFSDIR) && export ARCH=arm64 && export OPENSSL_PATH=$(RFSDIR)/usr && \
++	 export EXTRA_INC=$(RFSDIR)/usr/include/aarch64-linux-gnu && export EXTRA_LIBS=$(RFSDIR)/lib/aarch64-linux-gnu && \
++	 export DPDK_PATH=$(DESTDIR)/usr/local/dpdk4vpp && \
++	 export LD_LIBRARY_PATH=$(DESTDIR)/usr/local/dpdk4vpp/lib:$(RFSDIR)/lib/aarch64-linux-gnu && \
++	 sudo cp -f $(DESTDIR)/usr/local/dpdk4vpp/lib/librte* $(RFSDIR)/usr/local/lib/ && \
++	 cd $(NETDIR)/vpp && $(MAKE) install-dep && cd build-root && $(MAKE) distclean && \
++	 $(MAKE) V=0 PLATFORM=dpaa TAG=dpaa install-deb && \
++	 mkdir -p $(DESTDIR)/usr/local/vpp && cp -vf *.deb $(DESTDIR)/usr/local/vpp && \
++	 sudo cp -f $(DESTDIR)/usr/local/lib/librte* $(RFSDIR)/usr/local/lib/ && \
++	 $(call fbprint_d,"vpp")
++endif
++else
++	@$(call fbprint_w,INFO: CONFIG_APP_VPP is not enabled by default in configs/$(CONFIGLIST))
++endif
++
++
++
++.PHONY: pktgen_dpdk
++pktgen_dpdk:
++ifeq ($(CONFIG_APP_PKTGEN_DPDK), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = mate -o $(DISTROSCALE) = lite ] && exit || \
++	 $(call fbprint_b,"pktgen_dpdk") && $(call fetch-git-tree,pktgen_dpdk,apps/networking) && \
++	 cd $(NETDIR)/pktgen_dpdk && export CROSS=$(CROSS_COMPILE) && \
++	 export RTE_SDK=$(NETDIR)/dpdk && export RTE_TARGET=arm64-dpaa-linuxapp-gcc && \
++	 $(MAKE) EXTRA_CFLAGS="-L$(RFSDIR)/usr/lib -L$(RFSDIR)/lib/aarch64-linux-gnu -Wl,-rpath=$(RFSDIR)/usr/lib \
++	 -I$(RFSDIR)/usr/include/lua5.3 -I$(RFSDIR)/usr/include/aarch64-linux-gnu" && \
++	 cp -f Pktgen.lua ${DESTDIR}/usr/bin && cp -f app/arm64-dpaa-linuxapp-gcc/pktgen ${DESTDIR}/usr/bin && \
++	 $(call fbprint_d,"pktgen_dpdk")
++endif
++endif
++
++
++
++.PHONY: ovs_dpdk
++ovs_dpdk:
++ifeq ($(CONFIG_APP_OVS_DPDK), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu -a $(DISTROTYPE) != yocto -o $(DISTROSCALE) = mate \
++	   -o $(DISTROSCALE) = lite -o $(DISTROSCALE) = tiny ] && exit || \
++	 $(call fbprint_b,"ovs_dpdk") && $(call fetch-git-tree,ovs_dpdk,apps/networking) && \
++	 [ ! -d $(RFSDIR)/usr/lib ] && $(call build_dependent_rfs) || echo $(RFSDIR) exists && \
++	 [ ! -d $(DESTDIR)/usr/local/dpdk ] && flex-builder -c dpdk -r $(DISTROTYPE):$(DISTROSCALE) -f $(CONFIGLIST) || \
++	 echo dpdk exists && cd $(NETDIR)/ovs_dpdk && export CROSS=$(CROSS_COMPILE) && \
++	 export RTE_SDK=$(NETDIR)/dpdk && export RTE_TARGET=arm64-dpaa-linuxapp-gcc && ./boot.sh && \
++	 export LDFLAGS="-L$(RFSDIR)/lib/aarch64-linux-gnu -L$(RFSDIR)/lib -L$(RFSDIR)/usr/lib" && \
++	 export LIBS="-ldl -lssl" && ./configure --prefix=/usr/local --host=aarch64-linux-gnu \
++	 --with-dpdk=$(DESTDIR)/usr/local --with-openssl=$(RFSDIR)/usr CFLAGS="-g -Wno-cast-align -Ofast \
++	 -I$(DESTDIR)/usr/local/include/dpdk -I$(RFSDIR)/usr/include -I$(RFSDIR)/usr/include/aarch64-linux-gnu -lpthread -lssl" && \
++	 $(MAKE) -j$(JOBS) install && $(call fbprint_d,"ovs_dpdk")
++endif
++endif
++
++
++
++.PHONY: flib
++flib:
++ifeq ($(CONFIG_APP_FLIB), y)
++ifeq ($(DESTARCH),arm64)
++	@$(call fbprint_b,"flib") && $(call fetch-git-tree,flib,apps/networking) && \
++	 $(MAKE) -C $(NETDIR)/flib install && $(call fbprint_d,"flib")
++endif
++endif
++
++
++
++.PHONY: fmlib
++fmlib:
++ifeq ($(CONFIG_APP_FMLIB), y)
++ifeq ($(DESTARCH),arm64)
++	@$(call fbprint_b,"fmlib") && $(call fetch-git-tree,fmlib,apps/networking) && \
++	 [ ! -d $(KERNEL_PATH)/include/uapi/linux/fmd ] && $(call build_dependent_linux) || \
++	 echo include/uapi/linux/fmd exists && cd $(NETDIR)/fmlib && \
++	 export KERNEL_SRC=$(KERNEL_PATH) && \
++	 $(MAKE) clean && $(MAKE) && $(MAKE) install-libfm-arm && \
++	 $(call fbprint_d,"fmlib")
++endif
++endif
++
++
++
++.PHONY: fmc
++fmc:
++ifeq ($(CONFIG_APP_FMC), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROSCALE) = mate -o $(DISTROTYPE) = centos -o $(DISTROSCALE) = tiny ] && exit || \
++	 $(call fbprint_b,"fmc") && $(call fetch-git-tree,fmc,apps/networking) && \
++	 if [ $(DISTROTYPE) = ubuntu -o $(DISTROTYPE) = yocto -o $(DISTROTYPE) = debian ]; then \
++	    xmlhdr=$(RFSDIR)/usr/include/libxml2; \
++	 elif [ $(DISTROTYPE) = buildroot ]; then xmlhdr=$(RFSDIR)/../host/include/libxml2; fi && \
++	 if [ $(DESTARCH) = arm64 ]; then host=aarch64-linux-gnu; elif [ $(DESTARCH) = arm32 ]; then host=arm-linux-gnueabihf; fi; \
++	 [ ! -d $(NETDIR)/fmlib/include/fmd/Peripherals -o ! -f $(DESTDIR)/lib/libfm-arm.a ] && \
++	 flex-builder -c fmlib -a $(DESTARCH) -f $(CONFIGLIST) || echo fmlib exists && \
++	 if [ ! -f $$xmlhdr/libxml/parser.h ]; then $(call build_dependent_rfs); fi && \
++	 if [ ! -d $(KERNEL_PATH)/include/uapi/linux/fmd ]; then $(call build_dependent_linux); fi && \
++	 export LDFLAGS="-L$(DESTDIR)/lib -L$(RFSDIR)/lib -L$(RFSDIR)/lib/$$host -L$(RFSDIR)/usr/lib \
++	 -Wl,-rpath=$(RFSDIR)/lib:$(RFSDIR)/lib/$$host:$(RFSDIR)/usr/lib:$(RFSDIR)/usr/lib/$$host" && \
++	 export CFLAGS="-I$(RFSDIR)/usr/include/$$host -I$(NETDIR)/fmlib/include/fmd \
++		-I$(NETDIR)/fmlib/include/fmd/Peripherals -I$(NETDIR)/fmlib/include/fmd/integrations" && \
++	 cd $(NETDIR)/fmc && $(MAKE) clean -C source && \
++	 $(MAKE) FMD_USPACE_HEADER_PATH=$(KERNEL_PATH)/include/uapi/linux/fmd \
++		 FMLIB_HEADER_PATH=$(NETDIR)/fmlib/include \
++		 LIBXML2_HEADER_PATH=$$xmlhdr \
++		 FMD_USPACE_LIB_PATH=$(DESTDIR)/lib TCLAP_HEADER_PATH=$(RFSDIR)/usr/include \
++		 CXX=$(CROSS_COMPILE)g++ CC=$(CROSS_COMPILE)gcc -C source && \
++	 install -d $(DESTDIR)/usr/local/bin && \
++	 install -m 755 source/fmc $(DESTDIR)/usr/local/bin/fmc && \
++	 install -d $(DESTDIR)/etc/fmc/config && \
++	 install -m 644 etc/fmc/config/hxs_pdl_v3.xml $(DESTDIR)/etc/fmc/config && \
++	 install -m 644 etc/fmc/config/netpcd.xsd $(DESTDIR)/etc/fmc/config && \
++	 install -d $(DESTDIR)/usr/local/include/fmc && \
++	 install source/fmc.h $(DESTDIR)/usr/local/include/fmc && \
++	 install -d $(DESTDIR)/usr/local/lib/$$host && \
++	 install source/libfmc.a $(DESTDIR)/usr/local/lib/$$host && \
++	 install -d $(DESTDIR)/usr/local/fmc/ && \
++	 install -m 755 $(FBDIR)/packages/rfs/misc/fmc/init-ls104xa $(DESTDIR)/usr/local/fmc && \
++	 install -d $(DESTDIR)/lib/systemd/system/ && \
++	 install -d $(DESTDIR)/etc/systemd/system/multi-user.target.wants/ && \
++	 install $(FBDIR)/packages/rfs/misc/fmc/fmc.service $(DESTDIR)/lib/systemd/system/ && \
++	 ln -sf /lib/systemd/system/fmc.service $(DESTDIR)/etc/systemd/system/multi-user.target.wants/fmc.service && \
++	 $(call fbprint_d,"fmc")
++endif
++endif
++
++
++.PHONY: spc
++spc:
++ifeq ($(CONFIG_APP_SPC), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROSCALE) = mate -o $(DISTROSCALE) = lite -o $(DISTROTYPE) = centos -o $(DISTROSCALE) = tiny ] && exit || \
++	 $(call fbprint_b,"SPC") && $(call fetch-git-tree,spc,apps/networking) && \
++	 if [ $(DISTROTYPE) = ubuntu -o $(DISTROTYPE) = yocto -o $(DISTROTYPE) = debian ]; then xmlhdr=$(RFSDIR)/usr/include/libxml2; \
++	 elif [ $(DISTROTYPE) = buildroot ]; then xmlhdr=$(RFSDIR)/../host/include/libxml2; fi && \
++	 if [ ! -f $$xmlhdr/libxml/parser.h ]; then $(call build_dependent_rfs); fi && \
++	 export LDFLAGS="-L$(RFSDIR)/lib -L$(RFSDIR)/lib/aarch64-linux-gnu -L$(RFSDIR)/usr/lib \
++	 -Wl,-rpath=$(RFSDIR)/lib:$(RFSDIR)/lib/aarch64-linux-gnu:$(RFSDIR)/usr/lib/aarch64-linux-gnu:$(RFSDIR)/usr/lib" && \
++	 $(MAKE) LIBXML2_HEADER_PATH=$$xmlhdr TCLAP_HEADER_PATH=$(RFSDIR)/usr/include \
++		 NET_USPACE_HEADER_PATH=$(NETDIR)/spc/source/include/net \
++		 CXX=$(CROSS_COMPILE)g++ CC=$(CROSS_COMPILE)gcc -C $(NETDIR)/spc/source && \
++	 cp -f $(NETDIR)/spc/source/spc $(DESTDIR)/usr/local/bin && cp -rf $(NETDIR)/spc/etc $(DESTDIR) && \
++	 $(call fbprint_d,"SPC")
++endif
++endif
++
++
++.PHONY: aiopsl
++aiopsl:
++ifeq ($(CONFIG_APP_AIOPSL), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu -a $(DISTROTYPE) != yocto -o $(DISTROSCALE) = tiny ] && exit || \
++	 $(call fbprint_b,"AIOPSL") && $(call fetch-git-tree,aiopsl,apps/networking) && cd $(NETDIR)/aiopsl && \
++	 if [ ! -d $(DESTDIR)/usr/local/aiop/bin ]; then mkdir -p $(DESTDIR)/usr/local/aiop/bin; fi && \
++	 cp -rf misc/setup/scripts $(DESTDIR)/usr/local/aiop  && \
++	 cp -rf misc/setup/traffic_files $(DESTDIR)/usr/local/aiop && \
++	 cp -rf demos/images/* $(DESTDIR)/usr/local/aiop/bin && \
++	 $(call fbprint_d,"AIOPSL")
++endif
++endif
++
++
++
++.PHONY: ceetm
++ceetm:
++ifeq ($(CONFIG_APP_CEETM), y)
++	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = mate -o $(DISTROSCALE) = lite ] && exit || \
++	 $(call fbprint_b,"CEETM") && $(call fetch-git-tree,ceetm,apps/networking) && \
++	 cd $(NETDIR)/ceetm && \
++	 if [ ! -f iproute2-4.15.0/tc/tc_util.h ]; then \
++	     wget --no-check-certificate $(iproute2_src_url) && tar xzf iproute2-4.15.0.tar.gz; \
++	 fi && \
++	 export IPROUTE2_DIR=$(NETDIR)/ceetm/iproute2-4.15.0 && \
++	 $(MAKE) clean && $(MAKE) && $(MAKE) install && \
++	 $(call fbprint_d,"CEETM")
++endif
++
++
++
++.PHONY: dce
++dce:
++ifeq ($(CONFIG_APP_DCE), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu -a $(DISTROTYPE) != yocto -o $(DISTROSCALE) = tiny ] && exit || \
++	 $(call fbprint_b,"dce") && $(call fetch-git-tree,dce,apps/networking) && cd $(NETDIR)/dce && \
++	 if [ ! -f lib/qbman_userspace/Makefile ]; then git submodule update; fi && \
++	 $(MAKE) ARCH=aarch64 && $(MAKE) install && $(call fbprint_d,"dce")
++endif
++endif
++
++
++
++.PHONY: openstack_nova
++openstack_nova:
++ifeq ($(CONFIG_APP_OPENSTACK_NOVA), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = mate -o $(DISTROSCALE) = lite ] && exit || \
++	 $(call fbprint_b,"openstack_nova") && $(call fetch-git-tree,openstack_nova,apps/networking) && \
++	 if [ ! -f $(NETDIR)/openstack_nova/nova/.patched ]; then \
++	    cd $(NETDIR)/openstack_nova/nova && sed -zi 's/\,\n\s*retry_on_request\=True//g' db/sqlalchemy/api.py && \
++	    sed -i '/from os_brick.initiator import connector/i\from os_brick import initiator' virt/libvirt/volume/drbd.py && \
++	    sed -i 's/connector.DRBD/initiator.DRBD/' virt/libvirt/volume/drbd.py && touch .patched; \
++	 fi && \
++	 cd $(NETDIR)/openstack_nova && sudo python setup.py install \
++	    --install-lib=$(RFSDIR)/usr/lib/python2.7/dist-packages --install-scripts=$(RFSDIR)/usr/local/bin && \
++	 $(call fbprint_d,"openstack_nova")
++endif
++else
++	@$(call fbprint_w,INFO: CONFIG_APP_OPENSTACK_NOVA is not enabled by default in configs/$(CONFIGLIST))
++endif
++
++
++.PHONY: qbman_userspace
++qbman_userspace:
++ifeq ($(CONFIG_APP_QBMAN_USERSPACE), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = mate -o $(DISTROSCALE) = lite ] && exit || \
++	 $(call fbprint_b,"qbman_userspace") && $(call fetch-git-tree,qbman_userspace,apps/networking) && \
++	 cd $(NETDIR)/qbman_userspace && export PREFIX=/usr/local && export ARCH=aarch64 && $(MAKE) && \
++	 cp -f lib_aarch64_static/libqbman.a $(DESTDIR)/usr/local/lib/ && \
++	 cp -f include/*.h $(DESTDIR)/usr/local/include/ && $(call fbprint_d,"qbman_userspace")
++endif
++endif
++
++
++.PHONY: eth_config
++eth_config:
++ifeq ($(CONFIG_APP_ETH_CONFIG), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROSCALE) = mate -o $(DISTROSCALE) = lite ] && exit || \
++	 $(call fbprint_b,"eth_config") && $(call fetch-git-tree,eth_config,apps/networking) && \
++	 mkdir -p $(DESTDIR)/etc/fmc/config && cd $(NETDIR)/eth_config && \
++	 cp -rf private $(DESTDIR)/etc/fmc/config && cp -rf shared_mac $(DESTDIR)/etc/fmc/config && \
++	 $(call fbprint_d,"eth_config")
++endif
++endif
++
++
++.PHONY: crconf
++crconf:
++ifeq ($(CONFIG_APP_CRCONF), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu -a $(DISTROTYPE) != yocto -o $(DISTROSCALE) = lite ] && exit || \
++	 $(call fbprint_b,"crconf") && $(call fetch-git-tree,crconf,apps/networking) && \
++	 sed -i -e 's/CC =/CC ?=/' -e 's/DESTDIR=/DESTDIR?=/' $(NETDIR)/crconf/Makefile && \
++	 cd $(NETDIR)/crconf && export CC=$(CROSS_COMPILE)gcc && export DESTDIR=${DESTDIR}/usr/local && \
++	 $(MAKE) clean && $(MAKE) && $(MAKE) install && $(call fbprint_d,"crconf")
++endif
++endif
++
++
++
++networking_repo_fetch:
++	@echo -e "\nfetch networking repositories: $(NETWORKING_REPO_LIST)"
++	@$(call repo-update,fetch,$(NETWORKING_REPO_LIST),apps/networking)
++
++networking_repo_update_branch:
++	@echo -e "\nnetworking repositories update for branch"
++	@$(call repo-update,branch,$(NETWORKING_REPO_LIST),apps/networking)
++
++networking_repo_update_tag:
++	@echo -e "\nnetworking repositories update for tag"
++	@$(call repo-update,tag,$(NETWORKING_REPO_LIST),apps/networking)
++
++networking_repo_update_latest:
++	@echo -e "\nnetworking repositories update to latest HEAD commit"
++	@$(call repo-update,update,$(NETWORKING_REPO_LIST),apps/networking)
++
++networking_repo_update_commit:
++	@echo -e "\nnetworking repositories update to specified commit ID"
++	@$(call repo-update,commit,$(NETWORKING_REPO_LIST),apps/networking)
+diff --git a/packages/apps/security/security.mk b/packages/apps/security/security.mk
+new file mode 100644
+index 0000000..a77c7f5
+--- /dev/null
++++ b/packages/apps/security/security.mk
+@@ -0,0 +1,212 @@
++#
++# Copyright 2017-2019 NXP
++#
++# SPDX-License-Identifier: BSD-3-Clause
++#
++#
++# SDK Security Components
++#
++
++SECURITY_REPO_LIST = cst openssl optee_os optee_client optee_test secure_obj libpkcs11
++SECDIR = $(PACKAGES_PATH)/apps/security
++
++security: $(SECURITY_REPO_LIST)
++
++
++.PHONY: cst
++cst:
++ifeq ($(CONFIG_APP_CST), y)
++	@[ $(DISTROTYPE) != ubuntu -a $(DISTROTYPE) != yocto -o $(DISTROSCALE) = tiny ] && exit || \
++	 $(call fbprint_b,"CST") && $(call fetch-git-tree,cst,apps/security) && \
++	 cd $(SECDIR)/cst && $(MAKE) -j$(JOBS) && \
++	 if [ -n "$(SECURE_PRI_KEY)" ]; then \
++	     echo Using specified $(SECURE_PRI_KEY) and $(SECURE_PUB_KEY) ... ; \
++	     cp -f $(SECURE_PRI_KEY) $(FBDIR)/packages/apps/security/cst/srk.pri; \
++	     cp -f $(SECURE_PUB_KEY) $(FBDIR)/packages/apps/security/cst/srk.pub; \
++	 elif [ ! -f cst/srk.pri -o ! -f cst/srk.pub ]; then \
++	     cd $(SECDIR)/cst && ./gen_keys 1024 && \
++	     echo "Generated new keys !"; else echo "Using default keys srk.pri and srk.pub"; \
++	 fi && $(call fbprint_d,"CST")
++endif
++
++
++
++.PHONY: openssl
++openssl:
++ifeq ($(CONFIG_APP_OPENSSL), y)
++	@[ $(DISTROTYPE) != ubuntu -a $(DISTROTYPE) != yocto -o $(DISTROSCALE) = mate -o \
++	   $(DISTROSCALE) = lite -o $(DISTROSCALE) = tiny ] && exit || \
++	 if [ $(DESTARCH) = arm64 ]; then \
++	     archopt=linux-aarch64; \
++	 elif [ $(DESTARCH) = arm32 ]; then \
++	     archopt=linux-armv4; \
++	 else \
++	     $(call fbprint_e,"$(DESTARCH) is not supported for openssl"); exit; \
++	 fi && \
++	 $(call fbprint_b,"OpenSSL") && $(call fetch-git-tree,openssl,apps/security) && \
++	 [ ! -d $(DESTDIR)/usr/local/include/crypto ] && \
++	 flex-builder -c cryptodev_linux -a $(DESTARCH) -f $(CONFIGLIST) || echo cryptodev exists && \
++	 cd $(SECDIR)/openssl && ./Configure enable-devcryptoeng $$archopt shared -DSSL_DEBUG \
++	 -I$(DESTDIR)/usr/local/include --prefix=/usr/local --openssldir=lib/ssl && \
++	 $(MAKE) clean && $(MAKE) depend && $(MAKE) 1>/dev/null && \
++	 $(MAKE) DESTDIR=$(DESTDIR) install 1>/dev/null && \
++	 rm -fr $(DESTDIR)/usr/local/lib/ssl/{certs,openssl.cnf,private} && \
++	 ln -s /etc/ssl/certs/ $(DESTDIR)/usr/local/lib/ssl/ && \
++	 ln -s /etc/ssl/private/ $(DESTDIR)/usr/local/lib/ssl/ && \
++	 ln -s /etc/ssl/openssl.cnf $(DESTDIR)/usr/local/lib/ssl/ && \
++	 $(call fbprint_d,"OpenSSL")
++endif
++
++
++
++.PHONY: secure_obj
++secure_obj:
++ifeq ($(CONFIG_APP_SECURE_OBJ), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = mate -o $(DISTROSCALE) = lite ] && exit || \
++	 $(call fbprint_b,"secure_obj") && $(call fetch-git-tree,secure_obj,apps/security) && \
++	 [ ! -d $(FBDIR)/packages/apps/security/openssl ] && \
++	 flex-builder -c openssl -f $(CONFIGLIST) || echo openssl exists && \
++	 if [ $(CONFIG_APP_OPTEE) != y ]; then \
++	     $(call fbprint_e,"Please enable CONFIG_APP_OPTEE to y in configs/$(CONFIGLIST)"); exit 1; \
++	 fi && \
++	 if [ ! -d $(FBDIR)/packages/apps/security/optee_os/out/arm-plat-ls ]; then flex-builder -c optee_os -f $(CONFIGLIST); fi && \
++	 if [ ! -f $(DESTDIR)/lib/libteec.so ]; then flex-builder -c optee_client -f $(CONFIGLIST); fi && \
++	 curbrch=`cd $(KERNEL_PATH) && git branch | grep ^* | cut -d' ' -f2` && \
++	 kerneloutdir=$(KERNEL_OUTPUT_PATH)/$$curbrch && mkdir -p $(DESTDIR)/usr/lib && \
++	 if [ ! -f $$kerneloutdir/.config ]; then $(call build_dependent_linux); fi && \
++	 kernelrelease=`cat $$kerneloutdir/include/config/kernel.release` && \
++	 cd $(SECDIR)/secure_obj && export DESTDIR=${DESTDIR}/usr/local && \
++	 export TA_DEV_KIT_DIR=$(FBDIR)/packages/apps/security/optee_os/out/arm-plat-ls/export-ta_arm64 && \
++	 export OPTEE_CLIENT_EXPORT=$(DESTDIR) && export KERNEL_SRC=$(KERNEL_PATH) && \
++	 export KERNEL_BUILD=$$kerneloutdir && $(call fbprint_n,"Using KERNEL_BUILD $$kerneloutdir") && \
++	 export SECURE_STORAGE_PATH=$(FBDIR)/packages/apps/security/secure_obj/secure_storage_ta/ta && \
++	 export OPENSSL_PATH=$(FBDIR)/packages/apps/security/openssl && mkdir -p $(DESTDIR)/usr/local/secure_obj/$$curbrch && \
++	 mkdir -p $(DESTDIR)/usr/lib/aarch64-linux-gnu/openssl-1.0.0/engines && mkdir -p $(DESTDIR)/lib/optee_armtz && \
++	 ./compile.sh && cp images/libeng_secure_obj.so $(DESTDIR)/usr/lib/aarch64-linux-gnu/openssl-1.0.0/engines && \
++	 mkdir -p $(FBOUTDIR)/linux/kernel/$(DESTARCH)/$(SOCFAMILY)/lib/modules/$$kernelrelease/extra && \
++	 cp images/securekeydev.ko $(FBOUTDIR)/linux/kernel/$(DESTARCH)/$(SOCFAMILY)/lib/modules/$$kernelrelease/extra/ && \
++	 cp images/*.ta $(DESTDIR)/lib/optee_armtz && cp images/*.so $(DESTDIR)/usr/local/lib && \
++	 cp images/{*_app,mp_verify} $(DESTDIR)/usr/local/bin && cp -rf securekey_lib/include/* $(DESTDIR)/usr/local/include && \
++	 $(call fbprint_d,"secure_obj")
++endif
++else
++	@$(call fbprint_w,INFO: CONFIG_APP_SECURE_OBJ is not enabled by default in configs/$(CONFIGLIST)) && exit
++endif
++
++
++
++.PHONY: libpkcs11
++libpkcs11:
++ifeq ($(CONFIG_APP_LIBPKCS11), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = mate -o $(DISTROSCALE) = lite ] && exit || \
++	 $(call fbprint_b,"libpkcs11") && $(call fetch-git-tree,libpkcs11,apps/security) && \
++	 if [ ! -d $(FBDIR)/packages/apps/security/openssl ]; then \
++	     echo building dependent openssl ... && \
++	     flex-builder -c openssl -a $(DESTARCH) -f $(CONFIGLIST); \
++	 fi && \
++	 if [ ! -d $(FBDIR)/packages/apps/security/secure_obj/securekey_lib/include ]; then \
++	     echo building dependent secure_obj ... && \
++	     flex-builder -c secure_obj -a $(DESTARCH) -f $(CONFIGLIST); \
++	 fi && \
++	 cd $(SECDIR)/libpkcs11 && $(MAKE) clean && $(MAKE) all OPENSSL_PATH=$(FBDIR)/packages/apps/security/openssl \
++	 EXPORT_DIR=$(DESTDIR)/usr/local CURDIR=$(FBDIR)/packages/apps/security/libpkcs11 \
++	 SECURE_OBJ_PATH=$(FBDIR)/packages/apps/security/secure_obj/securekey_lib && \
++	 mkdir -p $(DESTDIR)/usr/local/bin && \
++	 mv $(DESTDIR)/usr/local/app/pkcs11_app $(DESTDIR)/usr/local/bin && \
++	 cp -f images/thread_test $(DESTDIR)/usr/bin && $(call fbprint_d,"libpkcs11")
++endif
++else
++	@$(call fbprint_w,INFO: CONFIG_APP_LIBPKCS11 is not enabled by default in configs/$(CONFIGLIST)) && exit
++endif
++
++
++
++optee: optee_os optee_client optee_test
++
++.PHONY: optee_os
++optee_os:
++ifeq ($(CONFIG_APP_OPTEE), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = mate -o $(DISTROSCALE) = lite ] && exit || \
++	 $(call fbprint_b,"optee_os") && $(call fetch-git-tree,optee_os,apps/security) && \
++	 if [ $(MACHINE) = all ]; then \
++	     for brd in $(LS_MACHINE_LIST); do \
++		 if [ $$brd = ls1021atwr -o $$brd = ls1028ardb ]; then continue; fi; \
++		 flex-builder -c optee_os -m $$brd -a $(DESTARCH) -f $(CONFIGLIST); \
++	     done; \
++	 else \
++	     if [ $(MACHINE) = ls1088ardb_pb ]; then brd=ls1088ardb; \
++	     elif [ $(MACHINE) = lx2160ardb_rev2 ]; then brd=lx2160ardb; \
++	     elif [ $(MACHINE) = ls1046afrwy ]; then brd=ls1046ardb; else brd=$(MACHINE); fi && \
++	     cd $(SECDIR)/optee_os && $(MAKE) CFG_ARM64_core=y PLATFORM=ls-$$brd ARCH=arm;\
++		$(CROSS_COMPILE)\objcopy -v -O binary out/arm-plat-ls/core/tee.elf out/arm-plat-ls/core/tee_$(MACHINE).bin;\
++	     if [ $(MACHINE) = ls1012afrwy ]; then \
++		mv out/arm-plat-ls/core/tee_$(MACHINE).bin out/arm-plat-ls/core/tee_$(MACHINE)_512mb.bin && \
++		$(MAKE) -j$(JOBS) CFG_ARM64_core=y PLATFORM=ls-ls1012afrwy ARCH=arm CFG_DRAM0_SIZE=0x40000000 && \
++		$(CROSS_COMPILE)\objcopy -v -O binary out/arm-plat-ls/core/tee.elf out/arm-plat-ls/core/tee_$(MACHINE).bin; \
++	     fi; \
++	fi && rm -f out/arm-plat-ls/core/tee.bin && $(call fbprint_d,"optee_os")
++endif
++else
++	@$(call fbprint_w,INFO: CONFIG_APP_OPTEE is not enabled by default in configs/$(CONFIGLIST))
++endif
++
++
++
++.PHONY: optee_client
++optee_client:
++ifeq ($(CONFIG_APP_OPTEE), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = mate -o $(DISTROSCALE) = lite ] && exit || \
++	 $(call fbprint_b,"optee_client") && $(call fetch-git-tree,optee_client,apps/security) && \
++	 cd $(SECDIR)/optee_client && $(MAKE) -j$(JOBS) ARCH=arm64 && mkdir -p $(DESTDIR)/usr/local/lib && \
++	 ln -sf $(DESTDIR)/lib/libteec.so $(DESTDIR)/usr/local/lib/libteec.so && \
++	 $(call fbprint_d,"optee_client")
++endif
++else
++	@$(call fbprint_w,INFO: CONFIG_APP_OPTEE is not enabled by default in configs/$(CONFIGLIST))
++endif
++
++
++
++.PHONY: optee_test
++optee_test:
++ifeq ($(CONFIG_APP_OPTEE), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = mate -o $(DISTROSCALE) = lite ] && exit || \
++	 $(call fbprint_b,"optee_test") && $(call fetch-git-tree,optee_test,apps/security) && \
++	 if [ ! -f $(DESTDIR)/lib/libteec.so.1.0 ]; then flex-builder -c optee_client -m $(MACHINE); fi && \
++	 cd $(SECDIR)/optee_test && $(MAKE) CFG_ARM64=y OPTEE_CLIENT_EXPORT=$(DESTDIR) \
++	 TA_DEV_KIT_DIR=$(FBDIR)/packages/apps/security/optee_os/out/arm-plat-ls/export-ta_arm64 && \
++	 mkdir -p $(DESTDIR)/lib/optee_armtz && \
++	 cp $(FBDIR)/packages/apps/security/optee_test/out/ta/*/*.ta $(DESTDIR)/lib/optee_armtz && \
++	 cp $(FBDIR)/packages/apps/security/optee_test/out/xtest/xtest $(DESTDIR)/bin && \
++	 $(call fbprint_d,"optee_test")
++endif
++else
++	@$(call fbprint_w,INFO: CONFIG_APP_OPTEE is not enabled by default in configs/$(CONFIGLIST))
++endif
++
++
++
++security_repo_fetch:
++	@echo -e "\nfetch security repositories: $(SECURITY_REPO_LIST)"
++	@$(call repo-update,fetch,$(SECURITY_REPO_LIST),apps/security)
++
++security_repo_update_branch:
++	@echo -e "\nsecurity repositories update for branch"
++	@$(call repo-update,branch,$(SECURITY_REPO_LIST),apps/security)
++
++security_repo_update_tag:
++	@echo -e "\nsecurity repositories update for tag"
++	@$(call repo-update,tag,$(SECURITY_REPO_LIST),apps/security)
++
++security_repo_update_latest:
++	@echo -e "\nsecurity repositories update to latest HEAD commit"
++	@$(call repo-update,update,$(SECURITY_REPO_LIST),apps/security)
++
++security_repo_update_commit:
++	@echo -e "\nsecurity repositories update to specified commit ID"
++	@$(call repo-update,commit,$(SECURITY_REPO_LIST),apps/security)
+diff --git a/packages/firmware/atf.mk b/packages/firmware/atf.mk
+new file mode 100644
+index 0000000..7f6e809
+--- /dev/null
++++ b/packages/firmware/atf.mk
+@@ -0,0 +1,148 @@
++#
++# Copyright 2018-2019 NXP
++#
++# SPDX-License-Identifier: BSD-3-Clause
++#
++#
++# SDK Firmware Components
++#
++
++
++.PHONY: atf
++atf:
++ifeq ($(CONFIG_FW_ATF), y)
++	@$(call fbprint_b,"ATF") && $(call fetch-git-tree,atf,firmware) && \
++	 $(call fetch-git-tree,uboot,firmware) && cd $(FWDIR) && \
++	 if [ $(MACHINE) = all ]; then \
++	     if [ "$(SECURE)" = "y" ]; then secopt=-s; fi; \
++	     for brd in $(LS_MACHINE_LIST); do \
++		 if [ $$brd = ls1021atwr ]; then continue; fi; \
++		 if [ -z "$(BOOTTYPE)" -o "$(BOOTTYPE)" = all ]; then \
++		     for bt in nor qspi sd emmc; do \
++			 flex-builder -c atf -m $$brd -b $$bt $$secopt; \
++		     done; \
++		 else \
++		     flex-builder -c atf -m $$brd -b $(BOOTTYPE) $$secopt; \
++		 fi; \
++	     done; \
++	 elif [ -z "$(BOOTTYPE)" -o "$(BOOTTYPE)" = all ]; then \
++	     for bt in nor qspi sd emmc; do \
++		 flex-builder -c atf -m $(MACHINE) -b $$bt $$secopt; \
++	     done; \
++	 else \
++	     mkdir -p $(FBOUTDIR)/firmware/atf/$(MACHINE) && \
++	     if [ $(MACHINE) = ls1088ardb_pb -o $${MACHINE:0:7} = lx2160a ]; then platform=$${MACHINE:0:10}; else platform=$(MACHINE); fi && \
++	     if [ $${platform:0:6} = ls1012 -o $${platform:0:5} = ls104 ]; then \
++		 chassistype=ls104x_1012; \
++	     else \
++		 chassistype=ls2088_1088; \
++	     fi && \
++	     if [ ! -f $(FBDIR)/configs/board/$(MACHINE)/manifest ]; then \
++		 echo $(MACHINE) is not supported! && exit 0; \
++	     fi && \
++	     if [ "$(SECURE)" = "y" ]; then \
++		 if [ $$chassistype = ls104x_1012 ]; then \
++		     rcwbin=`grep ^rcw_$(BOOTTYPE)_sec= $(FBDIR)/configs/board/$(MACHINE)/manifest | cut -d= -f2 | cut -c 11-`; \
++		 else \
++		     rcwbin=`grep ^rcw_$(BOOTTYPE)= $(FBDIR)/configs/board/$(MACHINE)/manifest | cut -d= -f2 | cut -c 11-`; \
++		 fi; \
++		 if [ $${MACHINE:0:7} = lx2160a ]; then ddrphyopt=fip_ddr_sec; fi && \
++		 if [ ! -f $(PACKAGES_PATH)/firmware/atf/ddr4_pmu_train_dmem.bin ]; then \
++		     flex-builder -c ddr_phy_bin -f $(CONFIGLIST); \
++		 fi && \
++		 secureopt="TRUSTED_BOARD_BOOT=1 $$ddrphyopt CST_DIR=$(PACKAGES_PATH)/apps/security/cst"; \
++		 secext=_sec; \
++		 if [ ! -f $(PACKAGES_PATH)/apps/security/cst/srk.pub ]; then \
++		     flex-builder -c cst -f $(CONFIGLIST); \
++		 fi && \
++		 cp -f $(PACKAGES_PATH)/apps/security/cst/srk.* $(PACKAGES_PATH)/firmware/atf; \
++		 ubootcfg=$(PACKAGES_PATH)/firmware/$(UBOOT_TREE)/configs/$${platform}_tfa_SECURE_BOOT_defconfig; \
++		 bl33=$(FBOUTDIR)/firmware/u-boot/$${platform}/uboot_$${platform}_tfa_SECURE_BOOT.bin; \
++	     else \
++		 if [ $(BL33TYPE) = uboot ]; then \
++		     ubootcfg=$(PACKAGES_PATH)/firmware/$(UBOOT_TREE)/configs/$${platform}_tfa_defconfig; \
++		     bl33=$(FBOUTDIR)/firmware/u-boot/$${platform}/uboot_$${platform}_tfa.bin; \
++		 elif [ $(BL33TYPE) = uefi ]; then \
++		     bl33=`grep ^uefi_$(BOOTTYPE) $(FBDIR)/configs/board/$${MACHINE:0:10}/manifest | cut -d= -f2 | cut -c 11-`; \
++		     if [ -z "$$bl33" ]; then echo uefi_$(BOOTTYPE)boot is not supported; exit; fi; \
++		     bl33=$(FBOUTDIR)/$$bl33; \
++		 fi; \
++		 rcwbin=`grep ^rcw_$(BOOTTYPE)= $(FBDIR)/configs/board/$(MACHINE)/manifest | cut -d= -f2 | cut -c 11-`; \
++	     fi && \
++	     if [ -z "$$rcwbin" ]; then echo $(MACHINE) $(BOOTTYPE)boot$$secext is not supported && exit 0; fi && \
++	     if [ -z "$(BOOTTYPE)" ]; then $(call fbprint_e,"Please specify '-b <boottype>'") && exit 0; fi && \
++	     rcwbin=$(FBOUTDIR)/$$rcwbin && \
++	     if [ -n "$(rcw_bin)" ]; then rcwbin=$(FBOUTDIR)/firmware/rcw/$(rcw_bin); fi && \
++	     if [ ! -f $$rcwbin ] || `cd $(FWDIR)/$(RCW_TREE) && git status -s|grep -qiE 'M|A|D' && cd - 1>/dev/null`; then \
++		 echo building dependent rcw ...; \
++		 flex-builder -c rcw -m $(MACHINE) -f $(CONFIGLIST); \
++		 test -f $$rcwbin || { $(call fbprint_e,"$$rcwbin not exist"); exit;} \
++	     fi && \
++	     if [ "$(CONFIG_FUSE_PROVISIONING)" = "y" ]; then \
++		 fusefile=$(PACKAGES_PATH)/apps/security/cst/fuse_scr.bin && \
++		 fuseopt="fip_fuse FUSE_PROG=1 FUSE_PROV_FILE=$$fusefile" && \
++		 if [ ! -d $(PACKAGES_PATH)/packages/apps/security/cst ]; then flex-builder -c cst -f $(CONFIGLIST); fi && \
++		 $(call fbprint_b,"dependent fuse_scr.bin") && \
++		 cd $(PACKAGES_PATH)/apps/security/cst && ./gen_fusescr input_files/gen_fusescr/$$chassistype/input_fuse_file && cd -; \
++	     fi && \
++	     if [ "$(CONFIG_APP_EDGESCALE)" = "y" -a $(BOOTTYPE) != sd -a $(BOOTTYPE) != emmc -a $(BOOTTYPE) != nand ]; then otaopt="POLICY_OTA=1"; fi && \
++	     if [ "$(CONFIG_APP_OPTEE)" = "y" ]; then \
++		 bl32=$(PACKAGES_PATH)/apps/security/optee_os/out/arm-plat-ls/core/tee_$$platform.bin; \
++		 bl32opt="BL32=$$bl32"; \
++		 if [ ! -f $$bl32 ]; then \
++		     flex-builder -c optee_os -m $$platform -f $(CONFIGLIST); \
++		 fi; \
++		 spdopt="SPD=opteed"; \
++	     fi && \
++	     if [ $(BL33TYPE) = uboot ]; then \
++		if [ ! -f $$bl33 ] || [[ `cd $(FWDIR)/$(UBOOT_TREE) && git status -s|grep -qiE 'M|A|D' && cd - 1>/dev/null` ]]; then \
++		    echo building dependent $$bl33 ...; \
++		    if [ ! -f $$ubootcfg ]; then \
++			$(call fbprint_e,Please add the dependent $$ubootcfg) && exit; \
++		    fi; \
++		    flex-builder -c uboot -m $$platform -b tfa -f $(CONFIGLIST); \
++		fi; \
++	     elif [ $(BL33TYPE) = uefi ]; then \
++		if [ ! -f $$bl33 ]; then \
++		    flex-builder -c uefi_bin -m $$platform -f $(CONFIGLIST); \
++		fi; \
++	     fi && \
++	     if [ -z "$$bl32opt" ]; then echo BL32=NULL as OPTEE is not enabled; fi && \
++	     if [ $(BOOTTYPE) = xspi ]; then bootmode=flexspi_nor; else bootmode=$(BOOTTYPE); fi && \
++	     echo $(MAKE) -j4 -C atf all fip pbl PLAT=$$platform BOOT_MODE=$$bootmode RCW=$$rcwbin BL33=$$bl33 $$bl32opt $$spdopt $$secureopt $$fuseopt $$otaopt && \
++	     $(MAKE) -j4 -C atf realclean && $(MAKE) -C atf all fip pbl PLAT=$$platform \
++	     BOOT_MODE=$$bootmode RCW=$$rcwbin BL33=$$bl33 $$bl32opt $$spdopt $$secureopt $$fuseopt $$otaopt && \
++	     cp -f atf/build/$$platform/release/bl2_$$bootmode*.pbl $(FBOUTDIR)/firmware/atf/$(MACHINE)/ && \
++	     cp -f atf/build/$$platform/release/fip.bin $(FBOUTDIR)/firmware/atf/$(MACHINE)/fip_$(BL33TYPE)$$secext.bin && \
++	     if [ -f atf/fip_ddr_sec.bin ] && [ $${MACHINE:0:7} = lx2160a ]; then \
++		 cp -f atf/fip_ddr_sec.bin $(FBOUTDIR)/firmware/atf/$(MACHINE)/; \
++	     fi && \
++	     if [ "$(CONFIG_FUSE_PROVISIONING)" = "y" ]; then \
++		cp -f atf/build/$$platform/release/fuse_fip.bin $(FBOUTDIR)/firmware/atf/$(MACHINE)/fuse_fip$$secext.bin; \
++	     fi && \
++	     if [ $(MACHINE) = ls1012afrwy ]; then \
++		 bl32=$(PACKAGES_PATH)/apps/security/optee_os/out/arm-plat-ls/core/tee_ls1012afrwy_512mb.bin && bl32opt="BL32=$$bl32" && \
++		 $(MAKE) -j4 -C atf realclean && $(MAKE) -C atf all fip pbl PLAT=ls1012afrwy_512mb \
++		 BOOT_MODE=$$bootmode RCW=$$rcwbin BL33=$$bl33 $$bl32opt $$spdopt $$secureopt $$fuseopt && \
++		 mkdir -p $(FBOUTDIR)/firmware/atf/ls1012afrwy_512mb && \
++		 cp -f atf/build/ls1012afrwy_512mb/release/bl2_$$bootmode*.pbl $(FBOUTDIR)/firmware/atf/ls1012afrwy_512mb/ && \
++		 cp -f atf/build/ls1012afrwy_512mb/release/fip.bin $(FBOUTDIR)/firmware/atf/ls1012afrwy_512mb/fip_uboot$$secext.bin && \
++		 if [ "$(CONFIG_FUSE_PROVISIONING)" = "y" ]; then \
++		     cp -f atf/build/ls1012afrwy_512mb/release/fuse_fip.bin $(FBOUTDIR)/firmware/atf/ls1012afrwy_512mb/fuse_fip$$secext.bin; \
++		 fi; \
++	     fi && ls -l $(FBOUTDIR)/firmware/atf/$(MACHINE)/* && \
++	     $(call fbprint_d,"ATF for $(MACHINE) $${bootmode}boot in $(FBOUTDIR)/firmware/atf/$(MACHINE)"); \
++	 fi
++endif
++
++
++.PHONY: imx_atf
++imx_atf:
++ifeq ($(CONFIG_FW_ATF), y)
++	@$(call fbprint_b,"imx_atf")
++	@$(call fetch-git-tree,imx_atf,firmware)
++	@$(MAKE) -C $(FWDIR)/imx_atf PLAT=$${MACHINE:0:6}; \
++	 mkdir -p $(FBOUTDIR)/firmware/atf/$(MACHINE) && \
++	 cp -f $(FWDIR)/imx_atf/build/$${MACHINE:0:6}/release/bl31.bin $(FBOUTDIR)/firmware/atf/$(MACHINE)/bl31.bin && \
++	 ls -l $(FBOUTDIR)/firmware/atf/$(MACHINE)/bl31.bin && $(call fbprint_d,"imx_atf")
++endif
+diff --git a/packages/firmware/u-boot.mk b/packages/firmware/u-boot.mk
+new file mode 100644
+index 0000000..717e1bc
+--- /dev/null
++++ b/packages/firmware/u-boot.mk
+@@ -0,0 +1,165 @@
++#
++# Copyright 2017-2019 NXP
++#
++# SPDX-License-Identifier: BSD-3-Clause
++#
++#
++# SDK Firmware Components
++#
++
++
++.PHONY: u-boot
++uboot u-boot:
++ifeq ($(CONFIG_FW_UBOOT), y)
++	@if [ $(SOCFAMILY) = LS ]; then $(call fetch-git-tree,uboot,firmware); fi
++	@if [ $(SOCFAMILY) = IMX ]; then $(call fetch-git-tree,uboot_imx,firmware); fi
++ifeq ($(MACHINE), all)
++	@for brd in $(LS_MACHINE_LIST); do \
++		if [ $$brd = ls1088ardb_pb ]; then brd=ls1088ardb; fi; \
++		if [ $${brd:0:7} = lx2160a ]; then brd=$${brd:0:10}; fi; \
++		if [ $(DESTARCH) = arm64 -a $$brd = ls1021atwr ]; then continue; \
++		elif [ $(DESTARCH) = arm32 ] && [ $$brd != ls1021atwr ]; then continue; fi; \
++		$(call fbprint_n,"*** machine = $$brd ***"); \
++		if [ $$brd = ls2088ardb ]; then brdmsk=*ls208?ardb*; else brdmsk=*$$brd*; fi && \
++		for cfg in `ls $(UBOOT_TREE)/configs/$$brdmsk 2>/dev/null | cut -d/ -f3 | \
++			grep -iE 'tfa_defconfig|tfa_SECURE_BOOT_defconfig'`; do \
++		    $(call build-uboot-target,$$cfg) \
++		done; \
++	 done
++else
++	@$(call fbprint_b,"uboot for $(MACHINE)")
++	@if [ $(MACHINE) = ls2088ardb -o $(MACHINE) = ls2088aqds ]; then \
++	     brdmsk=`echo $(MACHINE)* | sed s/88/8?/`; \
++	 elif echo $(MACHINE) | grep -q ^[p,t,P,T].*; then \
++	     brdmsk=*`tr '[a-z]' '[A-Z]' <<< $(MACHINE)`*; \
++	 elif [ $(MACHINE) = ls1088ardb_pb ]; then \
++	     brdmsk=*ls1088ardb*; \
++	 elif [ $${MACHINE:0:7} = lx2160a ]; then \
++	     brdmsk=*$${MACHINE:0:10}*; \
++	 elif [ $(MACHINE) = imx8mqevk ]; then \
++	     brdmsk=imx8mq_evk_defconfig; \
++	 elif [ $(MACHINE) = imx8mmevk ]; then \
++	     brdmsk=imx8mm_evk_defconfig; \
++	 elif [ $(MACHINE) = imx8mnevk ]; then \
++	     brdmsk=imx8mn_ddr4_evk_defconfig; \
++	 elif [ $(MACHINE) = imx8qmmek ]; then \
++	     brdmsk=imx8qm_mek_defconfig; \
++	 elif [ $(MACHINE) = imx8qxpmek ]; then \
++	     brdmsk=imx8qxp_mek_defconfig; \
++	 elif [ $(MACHINE) = imx6qsabresd ]; then \
++	     brdmsk=mx6qsabresd_defconfig; \
++	 elif [ $(MACHINE) = imx6qpsabresd ]; then \
++	     brdmsk=mx6qpsabresd_defconfig; \
++	 elif [ $(MACHINE) = imx6sllevk ]; then \
++	     brdmsk=mx6sllevk_defconfig; \
++	 elif [ $(MACHINE) = imx7ulpevk ]; then \
++	     brdmsk=mx7ulp_evk_defconfig; \
++	 elif echo $(MACHINE) | grep -q ^[imx].*; then \
++	     brdmsk=$(MACHINE)_defconfig; \
++	 else \
++	     brdmsk=*$(MACHINE)*; \
++	 fi && \
++	 if [ -z "$(BOOTTYPE)" ]; then \
++	     $(call fbprint_e,"please specify -b boottype parameter for u-boot on $(MACHINE)"); \
++	     exit; \
++	 else \
++	     if [ $(BOOTTYPE) = tfa ]; then \
++		 boottype=tfa; \
++	     elif [ $(BOOTTYPE) = sd ]; then \
++		 boottype='sdcard|sd_defconfig|*_evk_defconfig|*_mek_defconfig|sllevk_defconfig|ulp_evk_defconfig'; \
++	     elif [ $(BOOTTYPE) = qspi ]; then \
++		 boottype='qspi_defconfig|qspi_SECURE_BOOT_defconfig'; \
++	     elif [ $(BOOTTYPE) = nor ]; then \
++		 boottype='nor|rdb_defconfig|rdb_SECURE_BOOT_defconfig|qds_defconfig|qds_SECURE_BOOT_defconfig'; \
++	     elif [ $(BOOTTYPE) = nand ]; then \
++		 boottype='nand'; \
++	     fi; \
++	     for cfg in `ls $(UBOOT_TREE)/configs/$$brdmsk 2>/dev/null | cut -d/ -f3 | grep -iE $$boottype`; do \
++		 $(call build-uboot-target,$$cfg) \
++	     done; \
++	 fi
++endif
++
++define build-uboot-target
++	if [ $(SOCFAMILY) = IMX -a ! -d $(FWDIR)/imx_mkimage ]; then $(call fetch-git-tree,imx_mkimage,firmware); fi && \
++	if [ $(SOCFAMILY) = IMX -a ! -d $(FWDIR)/linux_firmware ]; then $(call fetch-git-tree,linux_firmware,firmware); fi && \
++	if [ $(SOCFAMILY) = IMX -a ! -d $(FWDIR)/seco ]; then $(call fetch-git-tree,seco,firmware); fi && \
++	if echo $1 | grep -qE imx8q && [ ! -f $(FWDIR)/imx_scfw/mx8qx-mek-scfw-tcm.bin ]; then \
++	     curl -R -k -f $(imx_scfw_bin_url) -o imx_scfw.bin && chmod +x imx_scfw.bin && \
++             ./imx_scfw.bin --auto-accept && mv `basename -s .bin $(imx_scfw_bin_url)` imx_scfw && rm -f imx_scfw.bin; \
++	fi && \
++	if echo $1 | grep -qE 'ls1021a|^mx';  then export ARCH=arm; export CROSS_COMPILE=arm-linux-gnueabihf-; dtbstr=-dtb; \
++	elif echo $1 | grep -q ^[p,t,P,T].*;  then export ARCH=powerpc; export CROSS_COMPILE=powerpc-linux-; \
++	     if [ ! -f $(FBOUTDIR)/rfs/rootfs_buildroot_ppc32_tiny/host/bin/powerpc-linux-gcc ]; then \
++		 flex-builder -i mktoolchain -a ppc32 -f $(CONFIGLIST); fi; \
++	     if ! echo "$(PATH)" | grep -q ppc32; then export PATH="$(FBOUTDIR)/rfs/rootfs_buildroot_ppc32_tiny/host/bin:$(PATH)";fi; \
++	else export ARCH=arm64;export CROSS_COMPILE=aarch64-linux-gnu-; dtbstr=-dtb; fi && \
++	if [ $(MACHINE) != all ]; then brd=$(MACHINE); fi && \
++	if [ $$brd = ls1088ardb_pb ]; then brd=ls1088ardb; fi && \
++	if [ $${brd:0:7} = lx2160a ]; then brd=$${brd:0:10}; fi && \
++	opdir=$(FBOUTDIR)/firmware/u-boot/$$brd/output/$1 && \
++	if [ ! -d $$opdir ]; then mkdir -p $$opdir; fi &&  \
++	$(call fbprint_n,"config = $1") && if [ ! -f $$opdir/.config ]; then $(MAKE) -C $(UBOOT_TREE) $1 O=$$opdir; fi && \
++	$(MAKE) -C $(UBOOT_TREE) -j$(JOBS) O=$$opdir && \
++	if echo $1 | grep -iqE 'sdcard|nand'; then \
++	   if [ -f $$opdir/u-boot-with-spl-pbl.bin ]; then \
++	       srcbin=u-boot-with-spl-pbl.bin; \
++	   else \
++	       srcbin=u-boot-with-spl.bin; \
++	   fi; \
++	   if echo $1 | grep -iqE 'SECURE_BOOT'; then \
++	       if echo $1 | grep -iqE 'sdcard'; then \
++		   cp $$opdir/spl/u-boot-spl.bin $(FBOUTDIR)/firmware/u-boot/$$brd/uboot_$${brd}_sdcard_spl.bin ; \
++		   cp $$opdir/u-boot-dtb.bin $(FBOUTDIR)/firmware/u-boot/$$brd/uboot_$${brd}_sdcard_dtb.bin ; \
++	       elif echo $1 | grep -iqE 'nand'; then \
++		   cp $$opdir/spl/u-boot-spl.bin $(FBOUTDIR)/firmware/u-boot/$$brd/uboot_$${brd}_nand_spl.bin ; \
++		   cp $$opdir/u-boot-dtb.bin $(FBOUTDIR)/build/u-boot/$$brd/uboot_$${brd}_nand_dtb.bin ; \
++	       fi; \
++	   fi; \
++	   tgtbin=uboot_`echo $1|sed -r 's/(.*)(_.*)/\1/'`.bin; \
++	else \
++	    if echo $1 | grep -qE ^mx; then \
++		srcbin=u-boot-dtb.imx; \
++		tgtbin=uboot_`echo $1|sed -r 's/(.*)(_.*)/\1/'`.imx; \
++	    else \
++		srcbin=u-boot$$dtbstr.bin; \
++		tgtbin=uboot_`echo $1|sed -r 's/(.*)(_.*)/\1/'`.bin; \
++	    fi; \
++	fi;  \
++	if echo $1 | grep -qE ^imx8; then \
++	    flex-builder -c imx_atf -m $(MACHINE) -f $(CONFIGLIST); \
++	    $(call imx_mkimage_target, $1) \
++	    cp $(FWDIR)/imx_mkimage/$$board_path/flash.bin $(FBOUTDIR)/firmware/u-boot/$$brd/$$tgtbin; \
++	else \
++	    cp $$opdir/$$srcbin $(FBOUTDIR)/firmware/u-boot/$$brd/$$tgtbin ; \
++	fi && \
++	$(call fbprint_d,"$(FBOUTDIR)/firmware/u-boot/$$brd/$$tgtbin");
++endef
++
++define imx_mkimage_target
++    if echo $1 | grep -qE ^imx8mm; then \
++	board_path=iMX8M; fdt=fsl-imx8mm-evk.dtb; target=flash_hdmi_spl_uboot; SOC=iMX8MM; \
++    elif echo $1 | grep -qE ^imx8mq; then \
++	board_path=iMX8M; fdt=fsl-imx8mq-evk.dtb; target=flash_hdmi_spl_uboot; SOC=iMX8MQ; \
++    elif echo $1 | grep -qE ^imx8mn; then \
++	board_path=iMX8M; fdt=fsl-imx8mn-ddr4-evk.dtb; target=flash_ddr4_evk_no_hdmi; SOC=iMX8MN; \
++    elif echo $1 | grep -qE ^imx8qm; then \
++	board_path=iMX8QM; fdt=fsl-imx8qm-mek.dtb; target=flash; SOC=iMX8QM; \
++	cp $(FWDIR)/linux_firmware/firmware/seco/mx8qm-ahab-container.img $(FWDIR)/imx_mkimage/$$board_path/; \
++	cp $(FWDIR)/imx_scfw/mx8qm-mek-scfw-tcm.bin $(FWDIR)/imx_mkimage/$$board_path/scfw_tcm.bin; \
++    elif echo $1 | grep -qE ^imx8qx; then \
++	board_path=iMX8QX; fdt=fsl-imx8qxp-mek.dtb; target=flash; SOC=iMX8QX; \
++	cp $(FWDIR)/seco/firmware/seco/mx8qx-ahab-container.img $(FWDIR)/imx_mkimage/$$board_path/; \
++	cp $(FWDIR)/imx_scfw/mx8qx-mek-scfw-tcm.bin $(FWDIR)/imx_mkimage/$$board_path/scfw_tcm.bin; \
++    fi; \
++    plat=`echo ${MACHINE} | cut -c 1-6`; \
++    cp -t $(FWDIR)/imx_mkimage/$$board_path $$opdir/spl/u-boot-spl.bin \
++      $$opdir/u-boot-nodtb.bin $$opdir/u-boot.bin $$opdir/arch/arm/dts/$$fdt \
++      $(FWDIR)/linux_firmware/firmware/ddr/synopsys/*.bin \
++      $(FWDIR)/linux_firmware/firmware/hdmi/cadence/signed_hdmi_imx8m.bin; \
++    cp $$opdir/tools/mkimage $(FWDIR)/imx_mkimage/$$board_path/mkimage_uboot; \
++    cp $(FWDIR)/imx_atf/build/$$plat/release/bl31.bin $(FWDIR)/imx_mkimage/$$board_path/bl31.bin; \
++    cd $(FWDIR)/imx_mkimage && $(MAKE) clean && $(MAKE) SOC=$$SOC $$target;
++endef
++
++endif
+-- 
+2.27.0
+

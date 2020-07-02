@@ -1,0 +1,60 @@
+From 3233c1cdd8eea7e288889edd457be3f386cc4dae Mon Sep 17 00:00:00 2001
+From: Dmitry Lavnikevich <dmitry.lavnikevich@scalys.by>
+Date: Mon, 11 May 2020 23:26:21 +0300
+Subject: [PATCH 07/11] Refactor iotedge
+
+---
+ packages/apps/azure/azure.mk | 29 +++++++++++++++++++----------
+ 1 file changed, 19 insertions(+), 10 deletions(-)
+
+diff --git a/packages/apps/azure/azure.mk b/packages/apps/azure/azure.mk
+index 5abeffc..e549b66 100644
+--- a/packages/apps/azure/azure.mk
++++ b/packages/apps/azure/azure.mk
+@@ -7,6 +7,16 @@
+ # Azure Edge components from repository
+ #
+ 
++MOBI_ENGINE_DEB_NAME="moby-engine_3.0.11+azure-2_arm64.deb"
++MOBI_CLI_DEB_NAME="moby-cli_3.0.11+azure-2_arm64.deb"
++LIBIOTHSM_DEB_NAME="libiothsm-std_1.0.9-1_arm64.deb"
++IOTEDGE_DEB_NAME="iotedge_1.0.9-1_arm64.deb"
++
++MOBI_ENGINE_DEB_URL="https://packages.microsoft.com/ubuntu/18.04/multiarch/prod/pool/main/m/moby-engine/moby-engine_3.0.11%2Bazure-2_arm64.deb"
++MOBI_CLI_DEB_URL="https://packages.microsoft.com/ubuntu/18.04/multiarch/prod/pool/main/m/moby-cli/moby-cli_3.0.11%2Bazure-2_arm64.deb"
++LIBIOTHSM_DEB_URL="https://packages.microsoft.com/ubuntu/18.04/multiarch/prod/pool/main/libi/libiothsm-std/$(LIBIOTHSM_DEB_NAME)"
++IOTEDGE_DEB_URL="https://packages.microsoft.com/ubuntu/18.04/multiarch/prod/pool/main/i/iotedge/$(IOTEDGE_DEB_NAME)"
++
+ 
+ .PHONY: azure_iotedge
+ azure_iotedge:
+@@ -15,17 +25,16 @@ ifeq ($(CONFIG_APP_AZURE_IOTEDGE), y)
+ 	cd $(FBDIR)/packages/apps/azure/azure-iotedge && \
+ 	curl https://packages.microsoft.com/config/ubuntu/18.04/multiarch/prod.list > $(RFSDIR)/etc/apt/sources.list.d/microsoft-prod.list && \
+ 	curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > $(RFSDIR)/etc/apt/trusted.gpg.d/microsoft.gpg && \
+-	echo "RFSDIR=$(RFSDIR)" && \
+ 	rm -f *.deb && \
+-	wget "https://packages.microsoft.com/ubuntu/18.04/multiarch/prod/pool/main/m/moby-engine/moby-engine_3.0.11%2Bazure-2_arm64.deb" && \
+-	wget "https://packages.microsoft.com/ubuntu/18.04/multiarch/prod/pool/main/m/moby-cli/moby-cli_3.0.11%2Bazure-2_arm64.deb" && \
+-	wget "https://packages.microsoft.com/ubuntu/18.04/multiarch/prod/pool/main/libi/libiothsm-std/libiothsm-std_1.0.9-1_arm64.deb" && \
+-	wget "https://packages.microsoft.com/ubuntu/18.04/multiarch/prod/pool/main/i/iotedge/iotedge_1.0.9-1_arm64.deb" && \
++	wget $(MOBI_ENGINE_DEB_URL) && \
++	wget $(MOBI_CLI_DEB_URL) && \
++	wget $(LIBIOTHSM_DEB_URL) && \
++	wget $(IOTEDGE_DEB_URL) && \
+ 	cp *.deb $(RFSDIR) && \
+-	sudo ls && \
+-	sudo chroot $(RFSDIR) dpkg -i --force-architecture "/moby-engine_3.0.11+azure-2_arm64.deb" && \
+-	sudo chroot $(RFSDIR) dpkg -i --force-architecture "/moby-cli_3.0.11+azure-2_arm64.deb" && \
+-	sudo chroot $(RFSDIR) dpkg -i --force-architecture "/libiothsm-std_1.0.9-1_arm64.deb" && \
+-	sudo chroot $(RFSDIR) dpkg -i --force-architecture "/iotedge_1.0.9-1_arm64.deb" && \
++	sudo chroot $(RFSDIR) dpkg -i "/$(MOBI_ENGINE_DEB_URL)" && \
++	sudo chroot $(RFSDIR) dpkg -i "/$(MOBI_CLI_DEB_URL)" && \
++	sudo chroot $(RFSDIR) dpkg -i "/$(LIBIOTHSM_DEB_URL)" && \
++	sudo chroot $(RFSDIR) dpkg -i "/$(IOTEDGE_DEB_URL)" && \
+ 	sudo rm $(RFSDIR)/*.deb
+ endif
++
+-- 
+2.27.0
+

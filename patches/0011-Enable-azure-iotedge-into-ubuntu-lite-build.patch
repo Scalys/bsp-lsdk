@@ -1,0 +1,77 @@
+From ab702728a955e20c48fd6693b4b50ee49ae6f368 Mon Sep 17 00:00:00 2001
+From: Dmitry Lavnikevich <dmitry.lavnikevich@scalys.by>
+Date: Mon, 29 Jun 2020 00:15:36 +0300
+Subject: [PATCH 11/11] Enable azure iotedge into ubuntu lite build
+
+---
+ configs/ubuntu/packages_trustbox | 14 +++++++++-----
+ tools/flex-builder               | 10 ++++++----
+ 2 files changed, 15 insertions(+), 9 deletions(-)
+
+diff --git a/configs/ubuntu/packages_trustbox b/configs/ubuntu/packages_trustbox
+index 220a5b7..e1ce2ec 100644
+--- a/configs/ubuntu/packages_trustbox
++++ b/configs/ubuntu/packages_trustbox
+@@ -14,10 +14,16 @@ additional_devel_packages_list="makedev tree lxc lxd virt-manager lm-sensors i2c
+  libcunit1-dev python-pip iperf netperf hugepages blktrace sysfsutils cpufrequtils iozone3 busybox
+  ipsec-tools lmbench watchdog libtclap-dev lttng-tools xterm can-utils python-virtualenv"
+ 
+-
+ # for Lite userland gathered from main repo
+-additional_lite_packages_list="systemd udev net-tools iputils-ping isc-dhcp-client"
+-
++additional_lite_packages_list="vim wget ethtool zip libxml2-dev libsensors4  rng-tools
++ apparmor cgroupfs-mount dns-root-data dnsmasq-base iptables libip6tc0 libiptc0
++ libnetfilter-conntrack3 libnfnetlink0 netcat netcat-traditional pigz runc ubuntu-fan
++ libssl1.0.0 libedit liblzma binutils libnuma bridge-utils libtool libncurses5 libelf curl
++ openssh-server openssh-client vlan ifenslave vsftpd sysstat rdate initramfs-tools mtd-utils
++ dosfstools net-tools iputils-ping hdparm psmisc keyutils iw wpasupplicant hostapd bluez
++ autotools-dev libelf-dev libncurses5-dev libnuma-dev libpcap-dev liblzma-dev binutils-dev
++ libedit-dev libssl-dev libsensors4-dev libxml2-dev libnl-3-dev libnl-genl-3-dev libreadline-dev
++ libtinfo-dev dialog"
+ 
+ # additional dependent packages for openstack-nova if CONFIG_BUILD_OPENSTACK_NOVA is enabled
+ openstack_dependent_packages_list="python-pbr python-sqlalchemy python-decorator python-eventlet
+@@ -33,11 +39,9 @@ openstack_dependent_packages_list="python-pbr python-sqlalchemy python-decorator
+  python-castellan python-microversion-parse python-os-xenapi python-tooz python-cursive python-pypowervm
+  qemu-efi-aarch64"
+ 
+-
+ # source packages depended by some custom components.
+ source_packages_list="iproute2"
+ 
+-
+ # extrinsic package needed by user but unavailable from official ubuntu
+ extrinsic_packages_list=""
+ 
+diff --git a/tools/flex-builder b/tools/flex-builder
+index a380cdf..bab7bb3 100755
+--- a/tools/flex-builder
++++ b/tools/flex-builder
+@@ -760,10 +760,8 @@ build_distro_rfs_ubuntu() {
+ 		rm -f $FBOUTDIR/rfs/$rfsname && exit
+ 	    fi
+ 	fi
+-	flex-mkdistrorfs $SYSARCH $CODENAME $DISTROSCALE $pkglist && \
+-	flex-builder -i merge-component -r ubuntu:lite -a $DESTARCH -f $CONFIGLIST && \
+-	flex-builder -i mkcpio -r ubuntu:lite -a $DESTARCH -f $CONFIGLIST && \
+-	flex-builder -i packrfs -r ubuntu:lite -a $DESTARCH -f $CONFIGLIST
++
++	flex-mkdistrorfs $SYSARCH $CODENAME $DISTROSCALE $pkglist
+     elif [ $DISTROSCALE = mate -a $DISTROTYPE = ubuntu ]; then
+ 	. $FBDIR/configs/ubuntu/build.cfg
+         rfsname=ubuntu_mate_${DESTARCH}.img
+@@ -1254,6 +1252,10 @@ merge_components() {
+         sudo mkdir -p $RFSDIR/lib/firmware/rtl_bt
+         . $FBDIR/configs/board/trustbox/manifest
+         sudo cp -f $FBDIR/$rtl8723bu_fw $RFSDIR/lib/firmware/rtl_bt/
++
++        # remove explicit system dependency on boot partition
++	sudo rm -f $RFSDIR/etc/systemd/system/boot.mount
++	sudo rm -f $RFSDIR/etc/systemd/system/local-fs.target.wants/boot.mount
+     fi
+ 
+     fbprint_d "merge app components into $RFSDIR"
+-- 
+2.27.0
+

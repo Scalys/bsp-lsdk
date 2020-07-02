@@ -6,9 +6,9 @@ cd "$UTIL_DIR"
 UTIL_DIR=`pwd`
 
 # LSDK sources
-LSDK_SRC="flexbuild_lsdk1903.tgz"
-LSDK_SRC_MD5="1efc3535b0255b088c0956e9c4ae3371"
-LSDK_SRC_DIR="flexbuild_lsdk1903"
+LSDK_SRC="flexbuild_lsdk2004.tgz"
+LSDK_SRC_MD5="1631b235bfa8e929f8b58129475bd86e"
+LSDK_SRC_DIR="flexbuild_lsdk2004"
 
 PATCHES_DIR="patches"
 PATCHES_APPLIED=".patches-applied"

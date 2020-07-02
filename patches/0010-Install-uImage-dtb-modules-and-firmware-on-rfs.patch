@@ -1,0 +1,158 @@
+From ab173ecd2bde1652146482244476a5f12291d9a1 Mon Sep 17 00:00:00 2001
+From: Dmitry Lavnikevich <dmitry.lavnikevich@scalys.by>
+Date: Sun, 28 Jun 2020 19:11:27 +0300
+Subject: [PATCH 10/11] Install uImage, dtb, modules and firmware on rfs
+
+---
+ configs/trustbox.cfg    |  2 +-
+ packages/linux/Makefile |  8 ++++++-
+ tools/flex-builder      | 52 +++++++++++++++++++++++------------------
+ tools/flex-installer    |  2 +-
+ 4 files changed, 38 insertions(+), 26 deletions(-)
+
+diff --git a/configs/trustbox.cfg b/configs/trustbox.cfg
+index b89ce04..adbe5f9 100644
+--- a/configs/trustbox.cfg
++++ b/configs/trustbox.cfg
+@@ -100,7 +100,7 @@ CONFIG_MACHINE_LX2160ARDB=n
+ CONFIG_MACHINE_LX2160AQDS=n
+ CONFIG_MACHINE_LX2160ARDB_REV2=n
+ CONFIG_MACHINE_LX2160AQDS_REV2=n
+-CONFIG_MACHINE_TRUSTBOX=n
++CONFIG_MACHINE_TRUSTBOX=y
+ 
+ 
+ # default i.MX ARM machine list for auto build
+diff --git a/packages/linux/Makefile b/packages/linux/Makefile
+index 2d4de61..904ef9d 100644
+--- a/packages/linux/Makefile
++++ b/packages/linux/Makefile
+@@ -31,7 +31,12 @@ ifeq ($(CONFIG_KERL_LINUX), y)
+ 	if [ $(DESTARCH) = arm64 -a $(SOCFAMILY) = IMX ]; then \
+ 	    locarch=arm64; dtbstr=freescale/imx*.dtb; \
+ 	elif [ $(DESTARCH) = arm64 -a $(SOCFAMILY) = LS ]; then \
+-	    locarch=arm64; dtbstr=freescale/fsl*.dtb; extflags="DTC_FLAGS='-@'"; \
++	    locarch=arm64; extflags="DTC_FLAGS='-@'"; \
++	    if [ $(MACHINE) = trustbox ]; then \
++	        dtbstr=freescale/trustbox.dtb; \
++	    else \
++	        dtbstr=freescale/fsl*.dtb; \
++	    fi \
+ 	elif [ $(DESTARCH) = arm32 -a $(SOCFAMILY) = LS ]; then \
+ 	    locarch=arm; dtbstr=ls*.dtb; \
+ 	elif [ $(DESTARCH) = arm32 -a $(SOCFAMILY) = IMX ]; then \
+@@ -85,6 +90,7 @@ ifeq ($(CONFIG_KERL_LINUX), y)
+ 	if [ $(DESTARCH) = arm64 ]; then \
+ 	    cp $$opdir/arch/$$locarch/boot/Image* \
+ 	    $(FBOUTDIR)/linux/$(KERNEL_TREE)/$(DESTARCH)/$(SOCFAMILY); \
++	    mkimage -A $(DESTARCH) -O linux -T kernel -C gzip -a 0x80080000 -e 0x80080000 -n Linux -d $(FBDIR)/build/linux/$(KERNEL_TREE)/$(DESTARCH)/$(SOCFAMILY)/Image.gz $(FBDIR)/build/linux/$(KERNEL_TREE)/$(DESTARCH)/$(SOCFAMILY)/uImage; \
+ 	fi && \
+ 	if [ $(DESTARCH) = arm32 ]; then \
+ 	    cp -f $$opdir/arch/$$locarch/boot/uImage \
+diff --git a/tools/flex-builder b/tools/flex-builder
+index 6b6cdab..a380cdf 100755
+--- a/tools/flex-builder
++++ b/tools/flex-builder
+@@ -1173,7 +1173,6 @@ merge_components() {
+ 	   [ $DESTARCH = arm64 ] && sudo sed -i "2 i\ fmc restool tsntool aiop_tool" $RFSDIR/etc/packages.list
+ 	   sudo sed -i "3 i\ " $RFSDIR/etc/packages.list
+ 	fi
+-	exit 0
+     elif [ $DISTROTYPE = ubuntu -o $DISTROTYPE = debian ] && [ $SOCFAMILY = LS ]; then
+ 	if [ ! -f $FBDIR/logs/.app${DESTARCH}$DISTROTYPE -a $SOCFAMILY = LS ] && [ $HOSTARCH != aarch64 ]; then
+ 	    echo target apps components not present, building it ..
+@@ -1191,7 +1190,7 @@ merge_components() {
+ 	   sudo sed -i "2 i\ $APPS_REPO_LIST" $RFSDIR/etc/packages.list
+ 	   sudo sed -i "3 i\ " $RFSDIR/etc/packages.list
+ 	fi
+-#	[ $VIRTABLE = y ] && sudo chroot $RFSDIR ldconfig
++	[ $VIRTABLE = y ] && sudo chroot $RFSDIR ldconfig
+     elif [ $DISTROTYPE = centos ] && [ $SOCFAMILY = LS ]; then
+ 	echo Installing restool in $DISTROTYPE ...
+ 	[ -f $DESTDIR/usr/local/bin/restool ] || flex-builder -c restool -f $CONFIGLIST
+@@ -1212,27 +1211,6 @@ merge_components() {
+ 	sudo cp -f $pfe_kernel $RFSDIR/lib/firmware/
+     fi
+ 
+-    #install RTL8723BU firmware to $RFSDIR/lib/firmware/
+-    if [ $CONFIG_MACHINE_TRUSTBOX = y ]; then
+-            if [ ! -f $FBDIR/build/linux/$KERNEL_TREE/$DESTARCH/$SOCFAMILY/lib/firmware/rtl_bt/rtl8723b_fw.bin  ]; then
+-            flex-builder -c linux -a arm64 -m trustbox
+-    fi
+-            sudo mkdir -p $RFSDIR/lib/firmware/rtl_bt
+-            . $FBDIR/configs/board/trustbox/manifest
+-            sudo cp -f $FBDIR/$rtl8723bu_fw $RFSDIR/lib/firmware/rtl_bt/
+-    fi
+- 
+-    #install kernel, and dtb to $RFSDIR/boot/
+-    if [ $CONFIG_MACHINE_TRUSTBOX = y ]; then
+-            if [ ! -f $FBDIR/build/linux/$KERNEL_TREE/$DESTARCH/$SOCFAMILY/trustbox.dtb -o ! -f $FBDIR/build/linux/$KERNEL_TREE/$DESTARCH/$SOCFAMILY/uImage ]; then
+-                    flex-builder -c linux -a $DESTARCH -m trustbox
+-            fi
+-            sudo mkdir -p $RFSDIR/boot/
+-            sudo cp -f $FBDIR/build/linux/$KERNEL_TREE/$DESTARCH/$SOCFAMILY/uImage $RFSDIR/boot/
+-            sudo cp -f $FBDIR/build/linux/$KERNEL_TREE/$DESTARCH/$SOCFAMILY/trustbox.dtb $RFSDIR/boot/
+-    fi
+-
+-
+     # install linux headers and module headers
+     if [ -d $FBOUTDIR/linux/kernel/$DESTARCH/$SOCFAMILY/output -a -d $RFSDIR/usr/include ]; then
+ 	curbrch=`cd $KERNEL_PATH && git branch | grep ^* | cut -d' ' -f2 && cd $FBDIR`
+@@ -1256,6 +1234,28 @@ merge_components() {
+ 	    fi
+ 	fi
+     fi
++
++    #install kernel, and dtb to $RFSDIR/boot/
++    if [ $CONFIG_MACHINE_TRUSTBOX = y ]; then
++        if [ ! -f $FBDIR/build/linux/$KERNEL_TREE/$DESTARCH/$SOCFAMILY/trustbox.dtb -o ! -f $FBDIR/build/linux/$KERNEL_TREE/$DESTARCH/$SOCFAMILY/uImage ]; then
++            flex-builder -c linux -a $DESTARCH -m trustbox
++        fi
++        sudo mkdir -p $RFSDIR/boot/
++        sudo cp -f $FBDIR/build/linux/$KERNEL_TREE/$DESTARCH/$SOCFAMILY/uImage $RFSDIR/boot/
++        sudo cp -f $FBDIR/build/linux/$KERNEL_TREE/$DESTARCH/$SOCFAMILY/trustbox.dtb $RFSDIR/boot/
++        # place modules on main partition instead of boot
++	[ -h $RFSDIR/lib/modules ] && sudo rm $RFSDIR/lib/modules
++	sudo cp -fa $FBDIR/build/linux/$KERNEL_TREE/$DESTARCH/$SOCFAMILY/lib $RFSDIR/
++
++        #install RTL8723BU firmware to $RFSDIR/lib/firmware/
++        if [ ! -f $FBDIR/build/linux/$KERNEL_TREE/$DESTARCH/$SOCFAMILY/lib/firmware/rtl_bt/rtl8723b_fw.bin  ]; then
++            flex-builder -c linux -a arm64 -m trustbox
++        fi
++        sudo mkdir -p $RFSDIR/lib/firmware/rtl_bt
++        . $FBDIR/configs/board/trustbox/manifest
++        sudo cp -f $FBDIR/$rtl8723bu_fw $RFSDIR/lib/firmware/rtl_bt/
++    fi
++
+     fbprint_d "merge app components into $RFSDIR"
+ }
+ 
+@@ -2329,6 +2329,12 @@ elif [ $DISTROTYPE = android ]; then
+     RFSDIR=$FBOUTDIR/rfs/rootfs_android_${android_version}_${DESTARCH}
+ fi
+ 
++# Foolproof check for RFSDIR as it is very dangerous to have it empty
++[ -n "$RFSDIR" ] || {
++    echo "Critical: no RFSDIR is set"
++    exit 1
++}
++
+ if [ $HOSTARCH = aarch64 -o $HOSTARCH = armv7l ] && [ -f /etc/buildinfo ]; then
+     DESTDIR=/
+ elif [ $DISTROTYPE = buildroot ]; then
+diff --git a/tools/flex-installer b/tools/flex-installer
+index 5cd09f0..30f1755 100755
+--- a/tools/flex-installer
++++ b/tools/flex-installer
+@@ -629,7 +629,7 @@ if [ -n "$instruction" ] && [ $instruction != auto -a $instruction != pf -a $ins
+     print_e "Invalid instruction $instruction, valid: auto, pf, download, install, list, mksdcard, backup"; exit
+ fi
+ 
+-default_machine_list='ls1012ardb ls1012afrwy ls1021atwr ls1028ardb ls1043ardb ls1046ardb ls1046afrwy ls1088ardb_pb ls2088ardb lx2160ardb lx2160ardb_rev2 '
++default_machine_list='ls1012ardb ls1012afrwy ls1021atwr ls1028ardb ls1043ardb ls1046ardb ls1046afrwy ls1088ardb_pb ls2088ardb lx2160ardb lx2160ardb_rev2 trustbox'
+ if [ "$instruction" = list ]; then
+     print_n "\nSupported machine list:"
+     print_n "  $default_machine_list"
+-- 
+2.27.0
+

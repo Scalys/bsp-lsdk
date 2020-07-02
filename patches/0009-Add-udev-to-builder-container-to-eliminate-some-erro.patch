@@ -1,0 +1,26 @@
+From 5830b8ac684fcd8d9df1d53b38188256d5822deb Mon Sep 17 00:00:00 2001
+From: Dmitry Lavnikevich <dmitry.lavnikevich@scalys.by>
+Date: Sat, 27 Jun 2020 15:57:59 +0300
+Subject: [PATCH 09/11] Add udev to builder container to eliminate some error
+ messages
+
+---
+ docker/ubuntu/18.04/Dockerfile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/docker/ubuntu/18.04/Dockerfile b/docker/ubuntu/18.04/Dockerfile
+index c3ede38..3b7abb2 100644
+--- a/docker/ubuntu/18.04/Dockerfile
++++ b/docker/ubuntu/18.04/Dockerfile
+@@ -29,7 +29,7 @@ RUN apt-get update && apt-get install -y \
+ 	cpp-arm-linux-gnueabihf dosfstools ruby iputils-ping cpio rsync libtclap-dev     \
+ 	parted android-tools-fsutils rpm2cpio lsb-release xutils-dev libwayland-bin cmake \
+ 	locales texinfo chrpath diffstat gawk scons libgflags-dev libhdf5-serial-dev \
+-	python3-numpy python3-wheel python3-h5py
++	python3-numpy python3-wheel python3-h5py udev
+ RUN apt-get update && apt-get install -y \
+ 	python-pip
+ RUN pip install pycryptodome
+-- 
+2.27.0
+

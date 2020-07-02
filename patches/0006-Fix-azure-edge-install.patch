@@ -1,0 +1,25 @@
+From 08666f2295e3e0a19f8a592a8db3cd593754e537 Mon Sep 17 00:00:00 2001
+From: Dmitry Lavnikevich <dmitry.lavnikevich@scalys.by>
+Date: Mon, 11 May 2020 22:29:01 +0300
+Subject: [PATCH 06/11] Fix azure edge install
+
+---
+ packages/apps/azure/azure.mk | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/packages/apps/azure/azure.mk b/packages/apps/azure/azure.mk
+index f4b087b..5abeffc 100644
+--- a/packages/apps/azure/azure.mk
++++ b/packages/apps/azure/azure.mk
+@@ -16,7 +16,7 @@ ifeq ($(CONFIG_APP_AZURE_IOTEDGE), y)
+ 	curl https://packages.microsoft.com/config/ubuntu/18.04/multiarch/prod.list > $(RFSDIR)/etc/apt/sources.list.d/microsoft-prod.list && \
+ 	curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > $(RFSDIR)/etc/apt/trusted.gpg.d/microsoft.gpg && \
+ 	echo "RFSDIR=$(RFSDIR)" && \
+-	rm *.deb && \
++	rm -f *.deb && \
+ 	wget "https://packages.microsoft.com/ubuntu/18.04/multiarch/prod/pool/main/m/moby-engine/moby-engine_3.0.11%2Bazure-2_arm64.deb" && \
+ 	wget "https://packages.microsoft.com/ubuntu/18.04/multiarch/prod/pool/main/m/moby-cli/moby-cli_3.0.11%2Bazure-2_arm64.deb" && \
+ 	wget "https://packages.microsoft.com/ubuntu/18.04/multiarch/prod/pool/main/libi/libiothsm-std/libiothsm-std_1.0.9-1_arm64.deb" && \
+-- 
+2.27.0
+

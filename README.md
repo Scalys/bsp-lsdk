@@ -1,10 +1,30 @@
-# TrustBox BSP
+## Flexbuild Overview
+Flexbuild is a component-oriented build framework and integration platform
+with capabilities of flexible, ease-to-use, scalable system build and
+distro depolyment.
 
-This BSP is based on 1903 release of NXP LSDK and relies on the LSDK sources archive available on NXP website (see [link](https://www.nxp.com/support/developer-resources/run-time-software/linux-software-and-development-tools/layerscape-software-development-kit-v19.03:LAYERSCAPE-SDK)).
+With flex-builder CLI, users can easily build various components (linux,
+u-boot, uefi, rcw, atf and miscellaneous userspace applications) and
+customable distro root filesystem to streamline the system build with
+efficient CI/CD.
 
-To compose the BSP download the LSDK sources archive flexbuild_lsdk1903.tgz, place it in this directory next to construct.sh and run:
-```
-$ ./construct.sh
-```
+With flex-installer CLI, users can easily install various distro to target
+storage device (SD/eMMC card or USB/SATA disk) directly on target board or
+on host machine.
 
-Then follow the build instructions described in the [build guide](https://www.grapeboard.com/wp-content/uploads/2018/10/Scalys_Grapeboard-bsp-user-guide_18102018.pdf).
+
+## Build Environment
+- Cross-build on x86 host machine running Ubuntu
+- Native-build on ARM board running Ubuntu
+- Build in Docker container hosted on any machine running any distro
+
+
+## Supported distros for target arm64/arm32 or ppc64/ppc32
+- Ubuntu/Debian userland   (main, mate, devel, lite)
+- CentOS userland
+- Yocto-based userland     (tiny, devel)
+- Buildroot-based userland (tiny, devel)
+
+
+## More info
+See docs/flexbuild_usage.md, docs/build_and_deploy_distro.md, docs/lsdk_build_install.md for detailed information.

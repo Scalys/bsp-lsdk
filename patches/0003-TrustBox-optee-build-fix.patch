@@ -1,0 +1,76 @@
+From 3f7d3e208c4fdbe7ebb8a109a251c54e6aa05a0b Mon Sep 17 00:00:00 2001
+From: Dmitry Lavnikevich <dmitry.lavnikevich@scalys.by>
+Date: Fri, 8 May 2020 00:08:46 +0300
+Subject: [PATCH 03/11] TrustBox optee build fix
+
+---
+ configs/trustbox.cfg           | 18 ++++++++----------
+ docker/ubuntu/18.04/Dockerfile |  3 +++
+ 2 files changed, 11 insertions(+), 10 deletions(-)
+
+diff --git a/configs/trustbox.cfg b/configs/trustbox.cfg
+index bce449f..edb79d4 100644
+--- a/configs/trustbox.cfg
++++ b/configs/trustbox.cfg
+@@ -54,7 +54,6 @@ CONFIG_APP_OPTEE=y
+ CONFIG_APP_LIBPKCS11=n
+ CONFIG_APP_SECURE_OBJ=n
+ CONFIG_APP_EDGESCALE=n
+-CONFIG_APP_AZURE_IOTEDGE=y
+ 
+ 
+ # set default build options for auto build
+@@ -160,8 +159,6 @@ rcw_repo_tag=LSDK-20.04
+ uboot_repo_url=https://github.com/Scalys/u-boot-qoriq.git
+ uboot_repo_branch=trustbox-1903
+ uboot_repo_commit=074705471b3630f2725794a69d2d1a0c471abdf2
+-#uboot_repo_url=https://source.codeaurora.org/external/qoriq/qoriq-components/u-boot.git
+-#uboot_repo_tag=LSDK-20.04
+ uboot_imx_repo_url=https://source.codeaurora.org/external/imx/uboot-imx
+ uboot_imx_repo_tag=rel_imx_4.9.123_2.3.0_8mm_ga
+ uefi_bin_repo_url=https://github.com/nxp/qoriq-uefi-binary.git
+@@ -200,10 +197,8 @@ linux_firmware_repo_branch=master
+ #
+ #
+ linux_repo_url=https://github.com/Scalys/linux-qoriq.git
+-linux_repo_branch=trustbox-1903
+-linux_repo_commit=481ae98fb3aa724409f0b2139845d34f5c87d4a8
+-#linux_repo_url=https://source.codeaurora.org/external/qoriq/qoriq-components/linux.git
+-#linux_repo_tag=LSDK-20.04-V5.4
++linux_repo_branch=trustbox-2004
++linux_repo_commit=dbf4236df844941961258a15f6b4faf3420ed49f
+ second_linux_repo_tag=LSDK-20.04-V4.19
+ cryptodev_linux_repo_url=https://source.codeaurora.org/external/qoriq/qoriq-components/cryptodev-linux.git
+ cryptodev_linux_repo_tag=LSDK-20.04
+@@ -241,9 +236,12 @@ iperf_repo_url=git://github.com/lynxis/iperf2.git
+ iperf_repo_branch=master
+ libpkcs11_repo_tag=LSDK-20.04
+ secure_obj_repo_tag=LSDK-20.04
+-optee_os_repo_tag=LSDK-20.04
+-optee_client_repo_tag=LSDK-20.04
+-optee_test_repo_tag=LSDK-20.04
++optee_os_repo_commit=fd17616cbc6508282fb37227dd21e5dfc9c49fe5
++optee_os_repo_url=https://github.com/ms-iot/optee_os.git
++optee_client_repo_commit=3745cedd13dd48672ea56126ee4506963b0d6fe4
++optee_client_repo_url=https://github.com/ms-iot/optee_client.git
++optee_test_repo_commit=c0e8678b55d399956da0bdce5b1f25c49839172c
++optee_test_repo_url=https://github.com/OP-TEE/optee_test.git
+ openstack_nova_repo_url=git://github.com/openstack/nova
+ openstack_nova_repo_branch=stable/pike
+ edgescale_eds_repo_url=git://github.com/nxp/qoriq-edgescale-eds.git
+diff --git a/docker/ubuntu/18.04/Dockerfile b/docker/ubuntu/18.04/Dockerfile
+index ed1bfc9..5c17b03 100644
+--- a/docker/ubuntu/18.04/Dockerfile
++++ b/docker/ubuntu/18.04/Dockerfile
+@@ -30,5 +30,8 @@ RUN apt-get install -y \
+ 	parted android-tools-fsutils rpm2cpio lsb-release xutils-dev libwayland-bin cmake \
+ 	locales texinfo chrpath diffstat gawk scons libgflags-dev libhdf5-serial-dev \
+ 	python3-numpy python3-wheel python3-h5py
++RUN apt-get install -y \
++	python-pip
++RUN pip install pycryptodome
+ 
+ RUN ln -sf /usr/bin/python3.6 /usr/bin/python && pip3 install six
+-- 
+2.27.0
+

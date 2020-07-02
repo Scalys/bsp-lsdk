@@ -1,0 +1,64 @@
+From 3f489c6c4c8935490de8720f6f044223fd35ea2c Mon Sep 17 00:00:00 2001
+From: Dmitry Lavnikevich <dmitry.lavnikevich@scalys.by>
+Date: Tue, 12 May 2020 01:01:28 +0300
+Subject: [PATCH 08/11] Fix chroot calls
+
+Since chroot is happening into a differenc architecture it relies on qemu.
+At the same time qemu needs /proc, /sys, /dev partitions mounted.
+---
+ packages/apps/azure/azure.mk | 31 ++++++++++++++++++++++++-------
+ 1 file changed, 24 insertions(+), 7 deletions(-)
+
+diff --git a/packages/apps/azure/azure.mk b/packages/apps/azure/azure.mk
+index e549b66..f3b40e5 100644
+--- a/packages/apps/azure/azure.mk
++++ b/packages/apps/azure/azure.mk
+@@ -12,6 +12,11 @@ MOBI_CLI_DEB_NAME="moby-cli_3.0.11+azure-2_arm64.deb"
+ LIBIOTHSM_DEB_NAME="libiothsm-std_1.0.9-1_arm64.deb"
+ IOTEDGE_DEB_NAME="iotedge_1.0.9-1_arm64.deb"
+ 
++MOBI_ENGINE_DEB_MD5=b6d784092ba9d5fac0673559531eff40
++MOBI_CLI_DEB_MD5=549410fd81b73e7336c6cbde511b40ba
++LIBIOTHSM_DEB_MD5=31625693d46d49412186cd814257b915
++IOTEDGE_DEB_MD5=ea4bed92fa3a76d1bf4d6a3a26a8c68d
++
+ MOBI_ENGINE_DEB_URL="https://packages.microsoft.com/ubuntu/18.04/multiarch/prod/pool/main/m/moby-engine/moby-engine_3.0.11%2Bazure-2_arm64.deb"
+ MOBI_CLI_DEB_URL="https://packages.microsoft.com/ubuntu/18.04/multiarch/prod/pool/main/m/moby-cli/moby-cli_3.0.11%2Bazure-2_arm64.deb"
+ LIBIOTHSM_DEB_URL="https://packages.microsoft.com/ubuntu/18.04/multiarch/prod/pool/main/libi/libiothsm-std/$(LIBIOTHSM_DEB_NAME)"
+@@ -27,14 +32,26 @@ ifeq ($(CONFIG_APP_AZURE_IOTEDGE), y)
+ 	curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > $(RFSDIR)/etc/apt/trusted.gpg.d/microsoft.gpg && \
+ 	rm -f *.deb && \
+ 	wget $(MOBI_ENGINE_DEB_URL) && \
+-	wget $(MOBI_CLI_DEB_URL) && \
+-	wget $(LIBIOTHSM_DEB_URL) && \
+-	wget $(IOTEDGE_DEB_URL) && \
++	wget $(MOBI_CLI_DEB_URL)    && \
++	wget $(LIBIOTHSM_DEB_URL)   && \
++	wget $(IOTEDGE_DEB_URL)     && \
++	[ -f $(MOBI_ENGINE_DEB_NAME) ] && [ `md5sum $(MOBI_ENGINE_DEB_NAME) | cut -d ' ' -f 1` = $(MOBI_ENGINE_DEB_MD5) ] && \
++	[ -f $(MOBI_CLI_DEB_NAME)    ] && [ `md5sum $(MOBI_CLI_DEB_NAME)    | cut -d ' ' -f 1` = $(MOBI_CLI_DEB_MD5)    ] && \
++	[ -f $(LIBIOTHSM_DEB_NAME)   ] && [ `md5sum $(LIBIOTHSM_DEB_NAME)   | cut -d ' ' -f 1` = $(LIBIOTHSM_DEB_MD5)   ] && \
++	[ -f $(IOTEDGE_DEB_NAME)     ] && [ `md5sum $(IOTEDGE_DEB_NAME)     | cut -d ' ' -f 1` = $(IOTEDGE_DEB_MD5)     ] && \
+ 	cp *.deb $(RFSDIR) && \
+-	sudo chroot $(RFSDIR) dpkg -i "/$(MOBI_ENGINE_DEB_URL)" && \
+-	sudo chroot $(RFSDIR) dpkg -i "/$(MOBI_CLI_DEB_URL)" && \
+-	sudo chroot $(RFSDIR) dpkg -i "/$(LIBIOTHSM_DEB_URL)" && \
+-	sudo chroot $(RFSDIR) dpkg -i "/$(IOTEDGE_DEB_URL)" && \
++	echo RFSDIR: $(RFSDIR) && \
++	sudo mount --bind /proc $(RFSDIR)/proc && \
++	sudo mount --bind /sys $(RFSDIR)/sys && \
++	sudo mount --bind /dev $(RFSDIR)/dev && \
++	sudo chroot $(RFSDIR) dpkg -i "/$(MOBI_ENGINE_DEB_NAME)" && \
++	sudo chroot $(RFSDIR) dpkg -i "/$(MOBI_CLI_DEB_NAME)"    && \
++	sudo chroot $(RFSDIR) dpkg -i "/$(LIBIOTHSM_DEB_NAME)"   && \
++	sudo chroot $(RFSDIR) dpkg -i "/$(IOTEDGE_DEB_NAME)"     && \
++	sudo umount $(RFSDIR)/proc && \
++	sudo umount $(RFSDIR)/sys && \
++	sudo umount $(RFSDIR)/dev && \
+ 	sudo rm $(RFSDIR)/*.deb
+ endif
+ 
++
+-- 
+2.27.0
+

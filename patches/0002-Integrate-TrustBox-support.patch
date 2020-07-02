@@ -1,0 +1,525 @@
+From 57b1528af9966907b7dc1ab74a311eb094b41b89 Mon Sep 17 00:00:00 2001
+From: Dmitry Lavnikevich <dmitry.lavnikevich@scalys.by>
+Date: Thu, 7 May 2020 16:34:56 +0300
+Subject: [PATCH 02/11] Integrate TrustBox support
+
+---
+ configs/board/trustbox/manifest  |  16 ++
+ configs/trustbox.cfg             | 317 +++++++++++++++++++++++++++++++
+ configs/ubuntu/packages_trustbox |  43 +++++
+ include/repo.mk                  |   6 +-
+ packages/firmware/Makefile       |   2 +-
+ packages/linux/Makefile          |  18 ++
+ tools/flex-builder               |  11 +-
+ 7 files changed, 406 insertions(+), 7 deletions(-)
+ create mode 100644 configs/board/trustbox/manifest
+ create mode 100644 configs/trustbox.cfg
+ create mode 100644 configs/ubuntu/packages_trustbox
+
+diff --git a/configs/board/trustbox/manifest b/configs/board/trustbox/manifest
+new file mode 100644
+index 0000000..a604c16
+--- /dev/null
++++ b/configs/board/trustbox/manifest
+@@ -0,0 +1,16 @@
++# [general]
++machine=trustbox
++
++# [linux, dtb, rfs]
++kernel_img=build/linux/kernel/arm64/LS/Image
++device_tree=build/linux/kernel/arm64/LS/trustbox.dtb
++
++# [qspi firmware]
++rcw_qspi=build/firmware/rcw/trustbox/N_SSNH_3308/rcw_800.bin.swapped
++uboot_qspiboot=build/firmware/u-boot/trustbox/uboot_trustbox_qspi.bin
++ppa_fw=build/firmware/ppa-generic/trustbox/ppa.itb
++pfe_fw=build/firmware/qoriq-engine-pfe-bin/ls1012a/u-boot/pfe_fw_sbl.itb
++
++# [kernel fw]
++pfe_kernel=build/firmware/qoriq-engine-pfe-bin/ls1012a/slow_path/ppfe*.elf
++rtl8723bu_fw=build/linux/linux/arm64/LS/lib/firmware/rtl_bt/rtl8723b_fw.bin
+diff --git a/configs/trustbox.cfg b/configs/trustbox.cfg
+new file mode 100644
+index 0000000..bce449f
+--- /dev/null
++++ b/configs/trustbox.cfg
+@@ -0,0 +1,317 @@
++# default configs for LSDK (component repositories on external codeaurora or github)
++
++# default git repository URL
++GIT_REPOSITORY_URL=https://source.codeaurora.org/external/qoriq/qoriq-components
++DISTRO_SVR_URL=https://www.nxp.com/lgfiles/sdk
++
++# LSDK version
++DISTRIB_NAME="NXP LSDK"
++DISTRIB_VERSION=lsdk2004
++
++# set default components for autobuild
++CONFIG_FW_ATF=n
++CONFIG_FW_RCW=y
++CONFIG_FW_UBOOT=y
++CONFIG_FW_UEFI_BIN=n
++CONFIG_FW_MC_BIN=y
++CONFIG_FW_MC_UTILS=y
++CONFIG_FW_SECO=n
++CONFIG_KERL_LINUX=y
++CONFIG_KERL_GPU_MODULE=n
++CONFIG_KERL_CRYPTODEV_LINUX=y
++CONFIG_KERL_LTTNG_MODULES=n
++CONFIG_KERL_PERF=y
++CONFIG_KERL_RTL8723BU=y
++CONFIG_APP_RESTOOL=y
++CONFIG_APP_FLIB=y
++CONFIG_APP_FMLIB=y
++CONFIG_APP_FMC=y
++CONFIG_APP_SPC=y
++CONFIG_APP_CST=y
++CONFIG_APP_OPENSSL=y
++CONFIG_APP_DPDK=y
++CONFIG_APP_VPP=n
++CONFIG_APP_OVS_DPDK=y
++CONFIG_APP_PKTGEN_DPDK=y
++CONFIG_APP_AIOPSL=y
++CONFIG_APP_CEETM=y
++CONFIG_APP_DCE=y
++CONFIG_APP_ETH_CONFIG=y
++CONFIG_APP_GPP_AIOPTOOL=y
++CONFIG_APP_QBMAN_USERSPACE=y
++CONFIG_APP_CRCONF=y
++CONFIG_APP_IPERF=y
++CONFIG_APP_CJSON=y
++CONFIG_APP_TSNTOOL=y
++CONFIG_APP_WAYLAND=n
++CONFIG_APP_WAYLAND_PROTOCOLS=n
++CONFIG_APP_GPULIB=n
++CONFIG_APP_LIBDRM=y
++CONFIG_APP_WESTON=n
++CONFIG_APP_DOCKER_CE=y
++CONFIG_APP_OPENSTACK_NOVA=n
++CONFIG_APP_OPTEE=y
++CONFIG_APP_LIBPKCS11=n
++CONFIG_APP_SECURE_OBJ=n
++CONFIG_APP_EDGESCALE=n
++CONFIG_APP_AZURE_IOTEDGE=y
++
++
++# set default build options for auto build
++CONFIG_EDGESCALE_SECURE_MODE=n
++CONFIG_FUSE_PROVISIONING=n
++BUILD_DUAL_KERNEL=n
++BUILD_UBUNTU_LITE=n
++BUILD_UBUNTU_MAIN=y
++BUILD_UBUNTU_MATE=n
++BUILD_UBUNTU_DEVEL=n
++BUILD_CENTOS_RFS=n
++BUILD_YOCTO_RFS=n
++BUILD_BUILDROOT_RFS=n
++UPDATE_REPO_PER_COMMIT=n
++UPDATE_REPO_PER_TAG=y
++INSTALL_FLASH_IMAGES=n
++FETCH_PREBUILT_LSDK_RFS=y
++DEFAULT_PACKAGES_PATH=$FBDIR/packages
++DEFAULT_OUT_PATH=$FBDIR/build
++
++
++# default Layerscape ARM machine list for auto build
++BUILD_LAYERSCAPE_IMAGE=y
++CONFIG_MACHINE_LS1012ARDB=n
++CONFIG_MACHINE_LS1012AQDS=n
++CONFIG_MACHINE_LS1012AFRDM=n
++CONFIG_MACHINE_LS1012AFRWY=n
++CONFIG_MACHINE_LS1021ATWR=n
++CONFIG_MACHINE_LS1021AQDS=n
++CONFIG_MACHINE_LS1028ARDB=n
++CONFIG_MACHINE_LS1028AQDS=n
++CONFIG_MACHINE_LS1043ARDB=n
++CONFIG_MACHINE_LS1043AQDS=n
++CONFIG_MACHINE_LS1046ARDB=n
++CONFIG_MACHINE_LS1046AQDS=n
++CONFIG_MACHINE_LS1046AFRWY=n
++CONFIG_MACHINE_LS1088ARDB=n
++CONFIG_MACHINE_LS1088AQDS=n
++CONFIG_MACHINE_LS1088ARDB_PB=n
++CONFIG_MACHINE_LS2088ARDB=n
++CONFIG_MACHINE_LS2088AQDS=n
++CONFIG_MACHINE_LX2160ARDB=n
++CONFIG_MACHINE_LX2160AQDS=n
++CONFIG_MACHINE_LX2160ARDB_REV2=n
++CONFIG_MACHINE_LX2160AQDS_REV2=n
++CONFIG_MACHINE_TRUSTBOX=n
++
++
++# default i.MX ARM machine list for auto build
++BUILD_IMX_IMAGE=n
++CONFIG_MACHINE_IMX6QSABRESD=n
++CONFIG_MACHINE_IMX6QPSABRESD=n
++CONFIG_MACHINE_IMX6SLLEVK=n
++CONFIG_MACHINE_IMX7ULPEVK=n
++CONFIG_MACHINE_IMX8MQEVK=n
++CONFIG_MACHINE_IMX8MMEVK=n
++CONFIG_MACHINE_IMX8MNEVK=n
++CONFIG_MACHINE_IMX8QMMEK=n
++CONFIG_MACHINE_IMX8QXPMEK=n
++
++
++# default PowerPC machine list for auto build
++CONFIG_MACHINE_T1024RDB=n
++CONFIG_MACHINE_T2080RDB=n
++CONFIG_MACHINE_T4240RDB=n
++
++
++# machine list with UEFI support
++uefi_machine_list="ls1043ardb ls1046ardb ls2088ardb lx2160ardb lx2160ardb_rev2"
++
++
++# set default distro Ubuntu/Debian codename
++distro_codename=bionic
++
++# set docker repo version
++fbdockerrepo=fbubuntu
++fbdockerimgversion=18.04
++
++# specify key pair for secure boot to override the default one if needed
++# SECURE_PRI_KEY=/path/to/srk.pri
++# SECURE_PUB_KEY=/path/to/srk.pub
++
++
++# default repo and branch
++default_rcw_tree=rcw
++default_uboot_tree=u-boot
++default_linux_tree=linux
++default_uboot_imx_tree=uboot_imx
++
++
++# default linux config list
++linux_config_list_arm64_ls="defconfig lsdk.config trustbox.config"
++linux_config_list_arm32_ls="multi_v7_defconfig multi_v7_lpae.config lsdk.config"
++linux_config_list_arm64_imx="defconfig imx.config imx_v8_defconfig"
++linux_config_list_arm32_imx="imx_v7_defconfig"
++linux_config_list_ppc64="corenet64_smp_defconfig"
++linux_config_list_ppc32="corenet32_smp_defconfig"
++
++
++# firmware git repositories
++rcw_repo_url=https://source.codeaurora.org/external/qoriq/qoriq-components/rcw.git
++rcw_repo_tag=LSDK-20.04
++uboot_repo_url=https://github.com/Scalys/u-boot-qoriq.git
++uboot_repo_branch=trustbox-1903
++uboot_repo_commit=074705471b3630f2725794a69d2d1a0c471abdf2
++#uboot_repo_url=https://source.codeaurora.org/external/qoriq/qoriq-components/u-boot.git
++#uboot_repo_tag=LSDK-20.04
++uboot_imx_repo_url=https://source.codeaurora.org/external/imx/uboot-imx
++uboot_imx_repo_tag=rel_imx_4.9.123_2.3.0_8mm_ga
++uefi_bin_repo_url=https://github.com/nxp/qoriq-uefi-binary.git
++uefi_bin_repo_tag=LSDK-20.04
++atf_repo_url=https://source.codeaurora.org/external/qoriq/qoriq-components/atf.git
++atf_repo_tag=LSDK-20.04
++mc_utils_repo_url=http://source.codeaurora.org/external/qoriq/qoriq-components/mc-utils.git
++mc_utils_repo_tag=LSDK-20.04
++mc_bin_repo_url=https://github.com/nxp/qoriq-mc-binary.git
++mc_bin_repo_tag=LSDK-20.04
++ddr_phy_bin_repo_url=https://github.com/nxp/ddr-phy-binary.git
++ddr_phy_bin_repo_tag=LSDK-20.04
++dp_firmware_cadence_repo_url=null
++dp_firmware_cadence_bin_url=https://www.nxp.com/lgfiles/sdk/lsdk2004/firmware-cadence-lsdk2004.bin
++qe_ucode_repo_url=https://github.com/nxp/qoriq-qe-ucode.git
++qe_ucode_repo_tag=LSDK-20.04
++fm_ucode_repo_url=https://github.com/nxp/qoriq-fm-ucode.git
++fm_ucode_repo_tag=LSDK-20.04
++pfe_bin_repo_url=https://github.com/nxp/qoriq-engine-pfe-bin.git
++pfe_bin_repo_tag=LSDK-20.04
++phy_cortina_repo_url=https://github.com/nxp/qoriq-firmware-cortina.git
++phy_cortina_repo_tag=LSDK-20.04
++phy_inphi_repo_url=https://github.com/nxp/qoriq-firmware-inphi.git
++phy_inphi_repo_tag=LSDK-20.04
++imx_atf_repo_url=https://source.codeaurora.org/external/imx/imx-atf.git
++imx_atf_repo_tag=p9.0.0_2.0.0-ga
++imx_mkimage_repo_url=https://source.codeaurora.org/external/imx/imx-mkimage.git
++imx_mkimage_repo_tag=p9.0.0_2.0.0-ga
++imx_scfw_bin_url=https://www.nxp.com/lgfiles/nmg/mad/yocto/imx-sc-firmware-1.5.0.bin
++seco_repo_url=https://source.codeaurora.org/external/imx/imx-seco.git
++seco_repo_branch=lf-5.4.y
++linux_firmware_repo_url=https://github.com/nxp/linux-firmware-imx.git
++linux_firmware_repo_branch=master
++
++# kernel and linux modules git repositories
++#
++#
++linux_repo_url=https://github.com/Scalys/linux-qoriq.git
++linux_repo_branch=trustbox-1903
++linux_repo_commit=481ae98fb3aa724409f0b2139845d34f5c87d4a8
++#linux_repo_url=https://source.codeaurora.org/external/qoriq/qoriq-components/linux.git
++#linux_repo_tag=LSDK-20.04-V5.4
++second_linux_repo_tag=LSDK-20.04-V4.19
++cryptodev_linux_repo_url=https://source.codeaurora.org/external/qoriq/qoriq-components/cryptodev-linux.git
++cryptodev_linux_repo_tag=LSDK-20.04
++gpu_module_repo_url=null
++gpu_module_bin_url=https://www.nxp.com/lgfiles/sdk/lsdk2004/gpu-module-lsdk2004.bin
++lttng_modules_repo_url=git://git.lttng.org/lttng-modules.git
++lttng_modules_repo_branch=master
++
++# App component git repositories
++restool_repo_url=https://source.codeaurora.org/external/qoriq/qoriq-components/restool.git
++restool_repo_tag=LSDK-20.04
++fmc_repo_tag=LSDK-20.04
++spc_repo_tag=LSDK-20.04
++dpdk_repo_tag=LSDK-20.04
++vpp_repo_tag=20.04-LSDK
++pktgen_dpdk_repo_url=https://dpdk.org/git/apps/pktgen-dpdk
++pktgen_dpdk_repo_tag=pktgen-19.12.0
++cst_repo_tag=LSDK-20.04
++aiopsl_repo_tag=LSDK-20.04
++ceetm_repo_tag=LSDK-20.04
++dce_repo_tag=LSDK-20.04
++flib_repo_tag=LSDK-20.04
++fmlib_repo_tag=LSDK-20.04
++openssl_repo_tag=LSDK-20.04
++gpp_aioptool_repo_url=https://source.codeaurora.org/external/qoriq/qoriq-components/gpp-aioptool.git
++gpp_aioptool_repo_tag=LSDK-20.04
++ovs_dpdk_repo_url=https://source.codeaurora.org/external/qoriq/qoriq-components/ovs-dpdk.git
++ovs_dpdk_repo_tag=LSDK-20.04
++qbman_userspace_repo_tag=LSDK-20.04
++eth_config_repo_url=https://source.codeaurora.org/external/qoriq/qoriq-components/eth-config.git
++eth_config_repo_tag=LSDK-20.04
++crconf_repo_url=git://github.com/Thermi/crconf.git
++crconf_repo_branch=master
++iperf_repo_url=git://github.com/lynxis/iperf2.git
++iperf_repo_branch=master
++libpkcs11_repo_tag=LSDK-20.04
++secure_obj_repo_tag=LSDK-20.04
++optee_os_repo_tag=LSDK-20.04
++optee_client_repo_tag=LSDK-20.04
++optee_test_repo_tag=LSDK-20.04
++openstack_nova_repo_url=git://github.com/openstack/nova
++openstack_nova_repo_branch=stable/pike
++edgescale_eds_repo_url=git://github.com/nxp/qoriq-edgescale-eds.git
++edgescale_eds_repo_tag=LSDK-20.04
++eds_bootstrap_repo_url=git://github.com/nxp/qoriq-eds-bootstrap.git
++eds_bootstrap_repo_tag=LSDK-20.04
++eds_kubelet_repo_url=git://github.com/nxp/qoriq-eds-kubelet.git
++eds_kubelet_repo_tag=LSDK-20.04
++cjson_repo_url=git://github.com/DaveGamble/cJSON.git
++cjson_repo_tag=v1.7.10
++tsntool_repo_url=https://source.codeaurora.org/external/qoriq/qoriq-components/tsntool.git
++tsntool_repo_tag=LSDK-20.04
++wayland_repo_url=git://github.com/wayland-project/wayland.git
++wayland_repo_tag=1.18.0
++wayland_protocols_repo_url=https://source.codeaurora.org/external/imx/wayland-protocols-imx.git
++wayland_protocols_repo_tag=lf-5.4.y-1.0.0
++weston_repo_url=https://source.codeaurora.org/external/imx/weston-imx.git
++weston_repo_tag=lf-5.4.y-1.0.0
++libdrm_repo_url=https://source.codeaurora.org/external/imx/libdrm-imx.git
++libdrm_repo_tag=lf-5.4.y-1.0.0
++gpulib_repo_url=null
++gpulib_bin_url=https://www.nxp.com/lgfiles/sdk/lsdk2004/gpulib-lsdk2004.bin
++buildroot_repo_url=git://github.com/buildroot/buildroot.git
++buildroot_repo_tag=2020.02
++yocto_poky_repo_url=git://git.yoctoproject.org/poky.git
++yocto_poky_repo_branch=zeus
++docker_ce_repo_url=null
++docker_ce_bin_url=https://www.nxp.com/lgfiles/sdk/lsdk1906/docker-ce-bin-v18.09.6.tar.gz
++initrd_bin_url=https://www.nxp.com/lgfiles/sdk/lsdk2004
++iproute2_src_url=https://mirrors.edge.kernel.org/pub/linux/utils/net/iproute2/iproute2-4.15.0.tar.gz
++
++
++
++# default settings of eIQ components for autobuild
++CONFIG_EIQ=n
++CONFIG_EIQ_ARMCL=y
++CONFIG_EIQ_ARMNN=y
++CONFIG_EIQ_CAFFE=y
++CONFIG_EIQ_FLATBUFFER=y
++CONFIG_EIQ_ONNX=y
++CONFIG_EIQ_ONNXRUNTIME=y
++CONFIG_EIQ_OPENCV=y
++CONFIG_EIQ_PROTOBUF=y
++CONFIG_EIQ_TFLITE=y
++CONFIG_EIQ_TENSORFLOW=y
++
++# eIQ components repo URL
++armcl_repo_url=https://github.com/Arm-software/ComputeLibrary.git
++armcl_repo_tag=v19.02
++armnn_repo_url=https://github.com/ARM-software/armnn.git
++armnn_repo_tag=v19.02
++bazel_bin_url=https://github.com/bazelbuild/bazel/releases/download/0.15.0/bazel-0.15.0-installer-linux-x86_64.sh
++boost_bin_url=https://dl.bintray.com/boostorg/release/1.64.0/source/boost_1_64_0.tar.bz2
++caffe_repo_url=https://github.com/BVLC/caffe.git
++caffe_repo_branch=master
++flatbuffer_repo_url=https://github.com/google/flatbuffers.git
++flatbuffer_repo_tag=v1.11.0
++onnx_repo_url=https://github.com/onnx/onnx.git
++onnx_repo_tag=v1.6.0
++onnxruntime_repo_url=https://github.com/Microsoft/onnxruntime.git
++onnxruntime_repo_tag=v0.4.0
++opencv_repo_url=https://source.codeaurora.org/external/imx/opencv-imx.git
++opencv_repo_branch=4.0.1_imx
++protobuf_repo_url=https://github.com/google/protobuf.git
++protobuf_repo_tag=v3.7.0
++stb_repo_url=https://github.com/nothings/stb.git
++stb_repo_branch=master
++tensorflow_repo_url=https://github.com/tensorflow/tensorflow.git
++tensorflow_repo_tag=v1.12.3
++tflite_repo_url=https://github.com/tensorflow/tensorflow.git
++tflite_repo_tag=v2.0.0
+diff --git a/configs/ubuntu/packages_trustbox b/configs/ubuntu/packages_trustbox
+new file mode 100644
+index 0000000..220a5b7
+--- /dev/null
++++ b/configs/ubuntu/packages_trustbox
+@@ -0,0 +1,43 @@
++
++# additional packages list for LSDK main userland gathered from main repo
++additional_main_packages_list="apt apt-utils git gcc vim wget make build-essential u-boot-tools
++ device-tree-compiler python python-dev ethtool zip libxml2-dev libsensors4-dev libssl-dev ftp
++ libedit-dev liblzma-dev binutils-dev autoconf automake dh-autoreconf libnuma-dev libpcap-dev
++ bc qemu-kvm bridge-utils libtool libncurses5-dev bison libelf-dev curl flex autotools-dev
++ openssh-server openssh-client tcpdump vlan ifenslave linux-tools-generic tftp-hpa tftpd-hpa
++ strace debootstrap mdadm vsftpd telnet sysstat rdate initramfs-tools mtd-utils dosfstools
++ net-tools iputils-ping hdparm psmisc keyutils python-numpy iw wpasupplicant hostapd bluez
++ docker.io rng-tools"
++
++# for devel userland gathered packages from universe/multiverse/restricted besides main repo
++additional_devel_packages_list="makedev tree lxc lxd virt-manager lm-sensors i2c-tools fio rt-tests
++ libcunit1-dev python-pip iperf netperf hugepages blktrace sysfsutils cpufrequtils iozone3 busybox
++ ipsec-tools lmbench watchdog libtclap-dev lttng-tools xterm can-utils python-virtualenv"
++
++
++# for Lite userland gathered from main repo
++additional_lite_packages_list="systemd udev net-tools iputils-ping isc-dhcp-client"
++
++
++# additional dependent packages for openstack-nova if CONFIG_BUILD_OPENSTACK_NOVA is enabled
++openstack_dependent_packages_list="python-pbr python-sqlalchemy python-decorator python-eventlet
++ python-jinja2 python-keystonemiddleware python-lxml python-routes python-cryptography python-webob
++ python-greenlet python-pastedeploy python-paste python-prettytable python-migrate python-netaddr
++ python-netifaces python-paramiko python-babel python-enum34 python-iso8601 python-jsonschema
++ python-cinderclient python-keystoneauth1 python-neutronclient python-glanceclient python-requests
++ python-six python-stevedore python-setuptools python-websockify python-oslo.cache python-oslo.concurrency
++ python-oslo.config python-oslo.context python-oslo.log python-oslo.reports python-oslo.serialization
++ python-oslo.utils python-oslo.db python-oslo.rootwrap python-oslo.messaging python-oslo.policy
++ python-oslo.privsep python-oslo.i18n python-oslo.service python-rfc3986 python-oslo.middleware
++ python-psutil python-oslo.versionedobjects python-os-brick python-os-traits python-os-vif python-os-win
++ python-castellan python-microversion-parse python-os-xenapi python-tooz python-cursive python-pypowervm
++ qemu-efi-aarch64"
++
++
++# source packages depended by some custom components.
++source_packages_list="iproute2"
++
++
++# extrinsic package needed by user but unavailable from official ubuntu
++extrinsic_packages_list=""
++
+diff --git a/include/repo.mk b/include/repo.mk
+index 8d8a620..158afb5 100644
+--- a/include/repo.mk
++++ b/include/repo.mk
+@@ -21,9 +21,11 @@ define fetch-git-tree
+ 		if [ -z "$$repourl" ]; then repourl=$(GIT_REPOSITORY_URL)/$1; fi && \
+ 		if [ "$3" != nosubmodule ]; then submoduleopt="--recurse-submodules"; fi &&\
+ 		if [ -n "$$tag" ]; then \
+-		    git clone $$submoduleopt $$repourl $$tree && cd $$tree && git checkout $$tag -b $$tag && cd -; \
++		    git clone $$submoduleopt $$repourl $$tree && cd $$tree && git checkout $$tag -b $$tag && \
++		    git submodule init && git submodule update --init --recursive && cd -; \
+ 		elif [ -n "$$commit" ]; then \
+-		    git clone $$submoduleopt $$repourl $$tree && cd $$tree && git checkout $$commit -b $$commit && cd -; \
++		    git clone $$submoduleopt $$repourl $$tree && cd $$tree && git checkout $$commit -b $$commit && \
++		    git submodule init && git submodule update --init --recursive && cd -; \
+ 		elif [ -n "$$branch" ]; then \
+ 		    git clone $$submoduleopt $$repourl $$tree -b $$branch; \
+ 		fi && \
+diff --git a/packages/firmware/Makefile b/packages/firmware/Makefile
+index 9fbf0b8..59a8214 100644
+--- a/packages/firmware/Makefile
++++ b/packages/firmware/Makefile
+@@ -12,7 +12,7 @@ include $(FBDIR)/include/repo.mk
+ REPO_LIST = uboot uefi_bin rcw atf mc_utils fm_ucode qe_ucode mc_bin phy_cortina phy_inphi pfe_bin ddr_phy_bin dp_firmware_cadence
+ FWDIR = $(PACKAGES_PATH)/firmware
+ 
+-firmware: uboot uefi_bin rcw atf mc_utils bin_firmware
++firmware: uboot uefi_bin rcw atf ppa-generic mc_utils bin_firmware
+ 
+ bin_firmware: fm_ucode qe_ucode mc_bin phy_cortina phy_inphi pfe_bin ddr_phy_bin dp_firmware_cadence
+ 
+diff --git a/packages/linux/Makefile b/packages/linux/Makefile
+index 1416a89..fcbbcd2 100644
+--- a/packages/linux/Makefile
++++ b/packages/linux/Makefile
+@@ -164,6 +164,24 @@ lttng_modules:
+ 	 $(MAKE) KERNELDIR=$(KERNEL_PATH) O=$$opdir modules_install && \
+ 	 $(call fbprint_d,"LTTng modules")
+ 
++.PHONY: rtl8723bu
++rtl8723bu:
++ifeq ($(CONFIG_BUILD_RTL8723BU), y)
++	@$(call fetch-git-tree,rtl8723bu)
++	@$(call fetch-git-tree,$(KERNEL_TREE))
++	@if [ ! -d $(FBDIR)/build/linux/kernel/$(DESTARCH)/$(SOCFAMILY) ]; then cd $(FBDIR) && \
++	flex-builder -c linux -a $(DESTARCH) -f $(CONFIGLIST) && cd -; fi && \
++	echo -e "\nBuilding RTL8723BU module ..." && \
++	sed -i 's/EXTRA_CFLAGS += -DCONFIG_CONCURRENT_MODE/#EXTRA_CFLAGS  += -DCONFIG_CONCURRENT_MODE/g' rtl8723bu/Makefile && \
++	sed -i 's/#define CONFIG_IPS    1/\/\/#define CONFIG_IPS           1/g' rtl8723bu/include/autoconf.h && \
++	cd rtl8723bu && \
++	curbrch=`cd $(KERNEL_PATH) && git branch -v | grep '^*' | cut -d' ' -f2` && \
++	$(MAKE) KSRC=$(FBDIR)/build/linux/$(KERNEL_TREE)/$(DESTARCH)/$(SOCFAMILY)/output/$$curbrch && \
++	$(MAKE) -C $(FBDIR)/build/linux/$(KERNEL_TREE)/$(DESTARCH)/$(SOCFAMILY)/output/$$curbrch M=$(FBDIR)/packages/linux/rtl8723bu modules_install && \
++	install rtl8723b_fw.bin -D $(FBDIR)/build/linux/$(KERNEL_TREE)/$(DESTARCH)/$(SOCFAMILY)/lib/firmware/rtl_bt/rtl8723b_fw.bin && \
++	echo build and installed RTL8723BU module+firmware done!
++endif
++
+ 
+ repo_fetch:
+ 	@echo -e "\nfetch linux repositories"
+diff --git a/tools/flex-builder b/tools/flex-builder
+index 901fe97..0c540cf 100755
+--- a/tools/flex-builder
++++ b/tools/flex-builder
+@@ -49,7 +49,7 @@ Most used example with separate command:
+  flex-builder clean-rfs                      # clean distro rootfs, '-r ubuntu:main -a arm64' by default
+ 
+ Most used options:
+- -m, --machine	       target machine, supports ls1012afrwy,ls1021atwr,ls1028ardb,ls1043ardb,ls1046ardb,ls1088ardb_pb,ls2088ardb,lx2160ardb, etc
++ -m, --machine	       target machine, supports ls1012afrwy,ls1021atwr,ls1028ardb,ls1043ardb,ls1046ardb,ls1088ardb_pb,ls2088ardb,lx2160ardb, trustbox, etc
+  -a, --arch	       target arch of processor, valid argument: arm64, arm64:be, arm32, arm32:be, ppc64, ppc32, arm64 by default
+  -b, --boottype	       type of boot media, valid argument: nor, sd, emmc, qspi, xspi, nand, default all types if unspecified
+  -c, --component       component to be built, valid argument: firmware, apps, linux, atf, rcw, multimedia, networking, security, eiq, edgescale,
+@@ -663,7 +663,7 @@ generate_bootpartition_tarball() {
+ 	    fi
+ 
+ 	    # pfe
+-	    if [ ${brd:0:7} = ls1012a ]; then
++	    if [ ${brd:0:7} = ls1012a -o ${brd} = trustbox ]; then
+ 		[ -f $FBOUTDIR/firmware/pfe_bin/ls1012a/u-boot/pfe_fw_sbl.itb ] || \
+ 		flex-builder -c pfe_bin -f $CONFIGLIST
+ 		cp -f $FBOUTDIR/firmware/pfe_bin/ls1012a/u-boot/pfe_fw_sbl.itb $bootpartdir/flash_images
+@@ -1195,7 +1195,7 @@ merge_components() {
+     fi
+ 
+     # install PFE firmware to $RFSDIR/lib/firmware
+-    if [ $CONFIG_MACHINE_LS1012ARDB = y -o $CONFIG_MACHINE_LS1012AFRWY = y ] && [ $SOCFAMILY = LS ]; then
++    if [ $CONFIG_MACHINE_LS1012ARDB = y -o $CONFIG_MACHINE_LS1012AFRWY = y -o $CONFIG_MACHINE_TRUSTBOX = y ] && [ $SOCFAMILY = LS ]; then
+ 	[ -f $FBOUTDIR/firmware/pfe_bin/ls1012a/slow_path/ppfe_class_ls1012a.elf ] || \
+ 	flex-builder -c pfe_bin -f $CONFIGLIST
+ 
+@@ -1790,7 +1790,7 @@ secure_sign_image() {
+ 	fi
+     fi
+     [ -f $pfe_fw ] || flex-builder -c pfe_bin -f $CONFIGLIST
+-    [ ${1:0:7} = ls1012a ] && cp $pfe_fw $PACKAGES_PATH/apps/security/cst/pfe.itb && echo "Copying PFE"
++    [ ${1:0:7} = ls1012a -o ${1} = trustbox ] && cp $pfe_fw $PACKAGES_PATH/apps/security/cst/pfe.itb && echo "Copying PFE"
+ 
+     if [ ${1:0:7} = ls1088a -o ${1:0:7} = ls2088a -o ${1:0:7} = lx2160a ]; then
+ 	[ -f $dpaa2_mc_fw ] || flex-builder -c mc_bin -f $CONFIGLIST
+@@ -2168,6 +2168,9 @@ elif [ "$MACHINE" = "imx7ulpevk" ]; then
+ elif [ "$MACHINE" = "imx8mqevk" -o "$MACHINE" = "imx8mmevk" -o "$MACHINE" = "imx8qmmek" -o \
+ 	"$MACHINE" = "imx8qxpmek" -o "$MACHINE" = "imx8mnevk" ]; then
+     DESTARCH=arm64 && PORTFOLIO=imx8
++elif [ "$MACHINE" = "trustbox" ]; then
++    DESTARCH=arm64 && PORTFOLIO=layerscape
++    CONFIGLIST=trustbox.cfg
+ fi
+ [ -z "$PORTFOLIO" ] && PORTFOLIO=layerscape
+ 
+-- 
+2.27.0
+
