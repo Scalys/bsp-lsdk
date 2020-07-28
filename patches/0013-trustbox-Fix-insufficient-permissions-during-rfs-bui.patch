@@ -1,0 +1,31 @@
+From 611c910684ff3bd9b216ef2b81e10a12a8956065 Mon Sep 17 00:00:00 2001
+From: Dmitry Lavnikevich <dmitry.lavnikevich@scalys.by>
+Date: Tue, 28 Jul 2020 16:57:10 +0300
+Subject: [PATCH] trustbox: Fix insufficient permissions during rfs build
+
+---
+ tools/flex-builder | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/tools/flex-builder b/tools/flex-builder
+index bab7bb3..aacf15f 100755
+--- a/tools/flex-builder
++++ b/tools/flex-builder
+@@ -818,12 +818,11 @@ build_distro_rfs_ubuntu() {
+     fi
+ 
+     if [ "$MACHINE" = "trustbox" ]; then
+-        echo $MACHINE > $RFSDIR/etc/hostname
++        echo $MACHINE | sudo tee $RFSDIR/etc/hostname > /dev/null
+ 	# Clean apt.conf from NXP proxy settings
+-	echo > $RFSDIR/etc/apt/apt.conf
++	echo | sudo tee $RFSDIR/etc/apt/apt.conf > /dev/null
+     fi
+ 
+-
+     fbprint_d $RFSDIR
+ }
+ 
+-- 
+2.27.0
+
