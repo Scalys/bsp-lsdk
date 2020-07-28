@@ -1,5 +1,5 @@
 # LSDK archive
-flexbuild_lsdk*.tgz
+flexbuild_lsdk*
 
 # LSDK sources
 LICENSE
@@ -21,3 +21,4 @@ packages
 
 # Misc
 .bashrc
+flexbuild_lsdk2004.tgz
