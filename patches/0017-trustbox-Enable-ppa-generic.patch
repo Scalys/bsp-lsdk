@@ -1,0 +1,33 @@
+From 69e6c12fee642a214428a53c6b5f4767e3f34733 Mon Sep 17 00:00:00 2001
+From: Dmitry Lavnikevich <dmitry.lavnikevich@scalys.by>
+Date: Thu, 30 Jul 2020 10:09:04 +0300
+Subject: [PATCH 17/20] trustbox: Enable ppa-generic
+
+---
+ configs/trustbox.cfg | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/configs/trustbox.cfg b/configs/trustbox.cfg
+index 2bd8dfb..6bab12b 100644
+--- a/configs/trustbox.cfg
++++ b/configs/trustbox.cfg
+@@ -11,6 +11,7 @@ DISTRIB_VERSION=lsdk2004
+ # set default components for autobuild
+ CONFIG_FW_ATF=n
+ CONFIG_FW_RCW=y
++CONFIG_FW_PPA=y
+ CONFIG_FW_UBOOT=y
+ CONFIG_FW_UEFI_BIN=n
+ CONFIG_FW_MC_BIN=y
+@@ -170,6 +171,8 @@ mc_utils_repo_url=http://source.codeaurora.org/external/qoriq/qoriq-components/m
+ mc_utils_repo_tag=LSDK-20.04
+ mc_bin_repo_url=https://github.com/nxp/qoriq-mc-binary.git
+ mc_bin_repo_tag=LSDK-20.04
++ppa_generic_repo=ppa-generic
++ppa_generic_repo_tag=LSDK-18.09
+ ddr_phy_bin_repo_url=https://github.com/nxp/ddr-phy-binary.git
+ ddr_phy_bin_repo_tag=LSDK-20.04
+ dp_firmware_cadence_repo_url=null
+-- 
+2.27.0
+

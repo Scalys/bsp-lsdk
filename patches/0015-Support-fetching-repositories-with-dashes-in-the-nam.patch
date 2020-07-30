@@ -1,0 +1,34 @@
+From 7c86da534afc5a51c9d0f96ba802cc8bb3a8d216 Mon Sep 17 00:00:00 2001
+From: Dmitry Lavnikevich <dmitry.lavnikevich@scalys.by>
+Date: Thu, 30 Jul 2020 09:53:39 +0300
+Subject: [PATCH 15/20] Support fetching repositories with dashes in the name
+
+---
+ include/repo.mk | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/include/repo.mk b/include/repo.mk
+index 158afb5..e6ca391 100644
+--- a/include/repo.mk
++++ b/include/repo.mk
+@@ -11,12 +11,13 @@ SHELL=/bin/bash
+ define fetch-git-tree
+ 	 if [ $1 = linux ]; then tree=$(KERNEL_TREE); elif [ $1 = uboot ]; then tree=$(UBOOT_TREE); \
+ 	 elif [ $1 = rcw ]; then tree=$(RCW_TREE); else tree=$1; fi && \
++	 name=`echo $1 | sed 's/-/_/g'` && \
+ 	 if [ $1 = uboot -a $(SOCFAMILY) = IMX ]; then exit; fi && tree=$(PACKAGES_PATH)/$2/$$tree && \
+ 	 if [ ! -d $$tree -a ! -L $$tree ]; then \
+-		branch=`grep -E "^${1}_repo_branch" $(FBDIR)/configs/$(CONFIGLIST) | cut -d= -f2` && \
+-		tag=`grep -E "^${1}_repo_tag" $(FBDIR)/configs/$(CONFIGLIST) | cut -d= -f2` && \
+-		commit=`grep -E "^${1}_repo_commit" $(FBDIR)/configs/$(CONFIGLIST) | cut -d= -f2` && \
+-		repourl=`grep -E "^${1}_repo_url" $(FBDIR)/configs/$(CONFIGLIST) | cut -d= -f2` && \
++		branch=`grep -E "^$${name}_repo_branch" $(FBDIR)/configs/$(CONFIGLIST) | cut -d= -f2` && \
++		tag=`grep -E "^$${name}_repo_tag" $(FBDIR)/configs/$(CONFIGLIST) | cut -d= -f2` && \
++		commit=`grep -E "^$${name}_repo_commit" $(FBDIR)/configs/$(CONFIGLIST) | cut -d= -f2` && \
++		repourl=`grep -E "^$${name}_repo_url" $(FBDIR)/configs/$(CONFIGLIST) | cut -d= -f2` && \
+ 		if [ "$$repourl" = null ]; then exit; fi && \
+ 		if [ -z "$$repourl" ]; then repourl=$(GIT_REPOSITORY_URL)/$1; fi && \
+ 		if [ "$3" != nosubmodule ]; then submoduleopt="--recurse-submodules"; fi &&\
+-- 
+2.27.0
+

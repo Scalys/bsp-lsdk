@@ -1,7 +1,7 @@
-From 3f489c6c4c8935490de8720f6f044223fd35ea2c Mon Sep 17 00:00:00 2001
+From 2ec39b75fbee9c6e975f1dd98acf1f840536e3d8 Mon Sep 17 00:00:00 2001
 From: Dmitry Lavnikevich <dmitry.lavnikevich@scalys.by>
 Date: Tue, 12 May 2020 01:01:28 +0300
-Subject: [PATCH 08/11] Fix chroot calls
+Subject: [PATCH 07/20] Fix chroot calls
 
 Since chroot is happening into a differenc architecture it relies on qemu.
 At the same time qemu needs /proc, /sys, /dev partitions mounted.

@@ -1,7 +1,7 @@
-From ab173ecd2bde1652146482244476a5f12291d9a1 Mon Sep 17 00:00:00 2001
+From cda07fd39092405e895f5da3d584098d82609959 Mon Sep 17 00:00:00 2001
 From: Dmitry Lavnikevich <dmitry.lavnikevich@scalys.by>
 Date: Sun, 28 Jun 2020 19:11:27 +0300
-Subject: [PATCH 10/11] Install uImage, dtb, modules and firmware on rfs
+Subject: [PATCH 09/20] Install uImage, dtb, modules and firmware on rfs
 
 ---
  configs/trustbox.cfg    |  2 +-

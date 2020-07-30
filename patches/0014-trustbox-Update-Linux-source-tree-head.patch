@@ -1,7 +1,7 @@
-From 63792ff5778cc54dbe7a4fba27efd048cbb16b92 Mon Sep 17 00:00:00 2001
+From 3694f7a425c70f6266eae57ebe218a585d4e6747 Mon Sep 17 00:00:00 2001
 From: Dmitry Lavnikevich <dmitry.lavnikevich@scalys.by>
 Date: Tue, 28 Jul 2020 17:20:45 +0300
-Subject: [PATCH] trustbox: Update Linux source tree head
+Subject: [PATCH 14/20] trustbox: Update Linux source tree head
 
 ---
  configs/trustbox.cfg | 2 +-

@@ -1,8 +1,8 @@
-From 8a1273a1fc1b1820f4c112c3a3ac127c4728a1a0 Mon Sep 17 00:00:00 2001
+From ab063972b951f160fdbc516f3d8b2d598cf090ee Mon Sep 17 00:00:00 2001
 From: Dmitry Lavnikevich <dmitry.lavnikevich@scalys.by>
 Date: Tue, 28 Jul 2020 17:07:46 +0300
-Subject: [PATCH] Make libOpenVG.so into symlink to suppress ldconfig error
- message
+Subject: [PATCH 13/20] Make libOpenVG.so into symlink to suppress ldconfig
+ error message
 
 Currently, libOpenVG.so is a copy of libOpenVG.3d.so. In reality it should be
 a symlink to select an appropriate libOpenVG implementation depending on GPU.

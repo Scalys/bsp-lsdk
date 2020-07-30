@@ -1,7 +1,7 @@
-From 611c910684ff3bd9b216ef2b81e10a12a8956065 Mon Sep 17 00:00:00 2001
+From c9d3c3b3e874ba0b3d26f1c3e1d9f684e447fb8d Mon Sep 17 00:00:00 2001
 From: Dmitry Lavnikevich <dmitry.lavnikevich@scalys.by>
 Date: Tue, 28 Jul 2020 16:57:10 +0300
-Subject: [PATCH] trustbox: Fix insufficient permissions during rfs build
+Subject: [PATCH 12/20] trustbox: Fix insufficient permissions during rfs build
 
 ---
  tools/flex-builder | 5 ++---

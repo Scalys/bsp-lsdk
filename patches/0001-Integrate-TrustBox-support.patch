@@ -1,7 +1,7 @@
-From 57b1528af9966907b7dc1ab74a311eb094b41b89 Mon Sep 17 00:00:00 2001
+From 314d72e7da87a1b91064443743ef97829e6794a0 Mon Sep 17 00:00:00 2001
 From: Dmitry Lavnikevich <dmitry.lavnikevich@scalys.by>
 Date: Thu, 7 May 2020 16:34:56 +0300
-Subject: [PATCH 02/11] Integrate TrustBox support
+Subject: [PATCH 01/20] Integrate TrustBox support
 
 ---
  configs/board/trustbox/manifest  |  16 ++

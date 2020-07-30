@@ -1,0 +1,29 @@
+From 4a932c3270938f63471dceafb6e5746be2d96bc0 Mon Sep 17 00:00:00 2001
+From: Dmitry Lavnikevich <dmitry.lavnikevich@scalys.by>
+Date: Thu, 30 Jul 2020 12:56:12 +0300
+Subject: [PATCH 19/20] optee: Install build product
+
+---
+ packages/apps/security/security.mk | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/packages/apps/security/security.mk b/packages/apps/security/security.mk
+index b8d09d9..c457c2f 100644
+--- a/packages/apps/security/security.mk
++++ b/packages/apps/security/security.mk
+@@ -154,7 +154,11 @@ ifeq ($(DESTARCH),arm64)
+ 		$(MAKE) -j$(JOBS) CFG_ARM64_core=y PLATFORM=ls-ls1012afrwy ARCH=arm CFG_DRAM0_SIZE=0x40000000 && \
+ 		$(CROSS_COMPILE)\objcopy -v -O binary out/arm-plat-ls/core/tee.elf out/arm-plat-ls/core/tee_$(MACHINE).bin; \
+ 	     fi; \
+-	fi && rm -f out/arm-plat-ls/core/tee.bin && $(call fbprint_d,"optee_os")
++	fi && \
++	if [ ! -d $(FBDIR)/build/firmware/optee ]; then mkdir -p $(FBDIR)/build/firmware/optee; fi && \
++	cp out/arm-plat-ls/core/tee_$(MACHINE).bin $(FBDIR)/build/firmware/optee/ && rm -f out/arm-plat-ls/core/tee.bin && \
++	$(call fbprint_d,"optee_os")
++
+ endif
+ else
+ 	@$(call fbprint_w,INFO: CONFIG_APP_OPTEE is not enabled by default in configs/$(CONFIGLIST))
+-- 
+2.27.0
+

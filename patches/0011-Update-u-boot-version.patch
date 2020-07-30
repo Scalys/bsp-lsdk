@@ -1,7 +1,7 @@
-From 808a4dd6132db8ac598a32825cbae7027eccb0c9 Mon Sep 17 00:00:00 2001
+From 22aa06ebbeeb054387257e6aeb723fca04534e00 Mon Sep 17 00:00:00 2001
 From: Dmitry Lavnikevich <dmitry.lavnikevich@scalys.by>
 Date: Thu, 2 Jul 2020 17:59:45 +0300
-Subject: [PATCH 12/12] Update u-boot version
+Subject: [PATCH 11/20] Update u-boot version
 
 ---
  configs/linux/linux_arm64_LS_main.its | 366 ++++++++++++++++++++++++++

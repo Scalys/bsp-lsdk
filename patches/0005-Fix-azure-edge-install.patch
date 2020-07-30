@@ -1,7 +1,7 @@
-From 08666f2295e3e0a19f8a592a8db3cd593754e537 Mon Sep 17 00:00:00 2001
+From b2b8a3c4bd645fe63497bf4d60fa2d6ec5fcf1dd Mon Sep 17 00:00:00 2001
 From: Dmitry Lavnikevich <dmitry.lavnikevich@scalys.by>
 Date: Mon, 11 May 2020 22:29:01 +0300
-Subject: [PATCH 06/11] Fix azure edge install
+Subject: [PATCH 05/20] Fix azure edge install
 
 ---
  packages/apps/azure/azure.mk | 2 +-

@@ -1,0 +1,40 @@
+From a0113e18dff4e7c8e023c923ed300f414e27fa68 Mon Sep 17 00:00:00 2001
+From: Dmitry Lavnikevich <dmitry.lavnikevich@scalys.by>
+Date: Thu, 30 Jul 2020 13:04:11 +0300
+Subject: [PATCH 20/20] ppa: Update build instructions
+
+---
+ packages/firmware/Makefile | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/packages/firmware/Makefile b/packages/firmware/Makefile
+index 23ac0a6..1d3f032 100644
+--- a/packages/firmware/Makefile
++++ b/packages/firmware/Makefile
+@@ -30,16 +30,16 @@ ifeq ($(CONFIG_FW_PPA), y)
+ 			cd $(FBDIR) && flex-builder -c optee_os -a $(DESTARCH) -m $(MACHINE);\
+ 		fi;
+         endif
+-	@$(call fetch-git-tree,$(ppa_generic_repo))
+-	@test -d $(FBDIR)/build/firmware/ppa_generic || mkdir -p $(FBDIR)/build/firmware/ppa_generic/$(MACHINE)
+-	@cd $(FBDIR)/packages/firmware/ppa_generic/ppa/ && ./build clean ls1012
++	@$(call fetch-git-tree,$(ppa_generic_repo),firmware)
++	@test -d $(FBDIR)/build/firmware/ppa-generic || mkdir -p $(FBDIR)/build/firmware/ppa-generic/$(MACHINE)
++	@cd $(FBDIR)/packages/firmware/ppa-generic/ppa/ && ./build clean ls1012
+         ifeq ($(CONFIG_APP_OPTEE), y)
+-		@cp $(FBDIR)/build/firmware/optee/tee_$(MACHINE).bin $(FBDIR)/packages/firmware/ppa_generic/ppa/soc-ls1012/tee.bin
+-		@cd $(FBDIR)/packages/firmware/ppa_generic/ppa/ && ./build prod rdb-fit spd=on ls1012
++		@cp $(FBDIR)/build/firmware/optee/tee_$(MACHINE).bin $(FBDIR)/packages/firmware/ppa-generic/ppa/soc-ls1012/tee.bin
++		@cd $(FBDIR)/packages/firmware/ppa-generic/ppa/ && ./build prod rdb-fit spd=on ls1012
+         else
+-		@cd $(FBDIR)/packages/firmware/ppa_generic/ppa/ && ./build prod rdb-fit ls1012
++		@cd $(FBDIR)/packages/firmware/ppa-generic/ppa/ && ./build prod rdb-fit ls1012
+         endif
+-	@cp $(FBDIR)/packages/firmware/ppa_generic/ppa/soc-ls1012/build/obj/ppa.itb $(FBDIR)/build/firmware/ppa_generic/$(MACHINE)
++	@cp $(FBDIR)/packages/firmware/ppa-generic/ppa/soc-ls1012/build/obj/ppa.itb $(FBDIR)/build/firmware/ppa-generic/$(MACHINE)
+ 	@$(call fbprint_d,"ppa-generic")
+ endif
+ endif
+-- 
+2.27.0
+

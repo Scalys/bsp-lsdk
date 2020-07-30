@@ -1,0 +1,26 @@
+From 9ef703ba5fa5a1cbb2c2a5b15e96a207a5a2a772 Mon Sep 17 00:00:00 2001
+From: Dmitry Lavnikevich <dmitry.lavnikevich@scalys.by>
+Date: Thu, 30 Jul 2020 10:29:10 +0300
+Subject: [PATCH 18/20] trustbox: Enable ppa-generic build during
+ merge-components stage
+
+---
+ tools/flex-builder | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/tools/flex-builder b/tools/flex-builder
+index 1c7f373..5431b88 100755
+--- a/tools/flex-builder
++++ b/tools/flex-builder
+@@ -1245,6 +1245,8 @@ merge_components() {
+ 	[ -h $RFSDIR/lib/modules ] && sudo rm $RFSDIR/lib/modules
+ 	sudo cp -fa $FBDIR/build/linux/$KERNEL_TREE/$DESTARCH/$SOCFAMILY/lib $RFSDIR/
+ 
++	flex-builder -c ppa -m trustbox
++
+         #install RTL8723BU firmware to $RFSDIR/lib/firmware/
+         if [ ! -f $FBDIR/build/linux/$KERNEL_TREE/$DESTARCH/$SOCFAMILY/lib/firmware/rtl_bt/rtl8723b_fw.bin  ]; then
+             flex-builder -c linux -a arm64 -m trustbox
+-- 
+2.27.0
+
