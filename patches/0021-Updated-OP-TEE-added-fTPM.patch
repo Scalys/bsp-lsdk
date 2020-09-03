@@ -1,0 +1,113 @@
+From e385b17ee95d9abde353db9687c5e3c6e5155128 Mon Sep 17 00:00:00 2001
+From: Mikalai Ramanovich <mikalai.ramanovich@edality.by>
+Date: Fri, 28 Aug 2020 17:30:46 +0300
+Subject: [PATCH] Updated OP-TEE, added fTPM
+
+---
+ configs/trustbox.cfg               | 10 ++++++----
+ docker/ubuntu/18.04/Dockerfile     |  3 ++-
+ packages/apps/security/security.mk | 25 ++++++++++++++++++++++---
+ 3 files changed, 30 insertions(+), 8 deletions(-)
+
+diff --git a/configs/trustbox.cfg b/configs/trustbox.cfg
+index 6bab12b..b8ca24e 100644
+--- a/configs/trustbox.cfg
++++ b/configs/trustbox.cfg
+@@ -202,7 +202,7 @@ linux_firmware_repo_branch=master
+ #
+ linux_repo_url=https://github.com/Scalys/linux-qoriq.git
+ linux_repo_branch=trustbox-2004
+-linux_repo_commit=a12f516a789ae4bd5404e48267eaa96764d265ba
++linux_repo_commit=9560cf84cbc4808f730c1f4f54b106aa7e5baf92
+ second_linux_repo_tag=LSDK-20.04-V4.19
+ cryptodev_linux_repo_url=https://source.codeaurora.org/external/qoriq/qoriq-components/cryptodev-linux.git
+ cryptodev_linux_repo_tag=LSDK-20.04
+@@ -243,12 +243,14 @@ iperf_repo_url=git://github.com/lynxis/iperf2.git
+ iperf_repo_branch=master
+ libpkcs11_repo_tag=LSDK-20.04
+ secure_obj_repo_tag=LSDK-20.04
+-optee_os_repo_commit=fd17616cbc6508282fb37227dd21e5dfc9c49fe5
++optee_os_repo_commit=e2d570599f761dd2a3b05ce315b317888504b39c
+ optee_os_repo_url=https://github.com/ms-iot/optee_os.git
+-optee_client_repo_commit=3745cedd13dd48672ea56126ee4506963b0d6fe4
++optee_client_repo_commit=4e91c54a6384f7975779d61d88c8da1a5e0dd799
+ optee_client_repo_url=https://github.com/ms-iot/optee_client.git
+-optee_test_repo_commit=c0e8678b55d399956da0bdce5b1f25c49839172c
++optee_test_repo_commit=40aacb6dc33bbf6ee329f40274bfe7bb438bbf53
+ optee_test_repo_url=https://github.com/OP-TEE/optee_test.git
++ftpm_repo_url=https://github.com/Microsoft/ms-tpm-20-ref.git
++ftpm_repo_commit=d979cae6db01ea2e57dbce92d700ce1d0edf78fa
+ openstack_nova_repo_url=git://github.com/openstack/nova
+ openstack_nova_repo_branch=stable/pike
+ edgescale_eds_repo_url=git://github.com/nxp/qoriq-edgescale-eds.git
+diff --git a/docker/ubuntu/18.04/Dockerfile b/docker/ubuntu/18.04/Dockerfile
+index 3b7abb2..f599106 100644
+--- a/docker/ubuntu/18.04/Dockerfile
++++ b/docker/ubuntu/18.04/Dockerfile
+@@ -34,4 +34,5 @@ RUN apt-get update && apt-get install -y \
+ 	python-pip
+ RUN pip install pycryptodome
+ 
+-RUN ln -sf /usr/bin/python3.6 /usr/bin/python && pip3 install six
++RUN ln -sf /usr/bin/python3.6 /usr/bin/python && pip3 install six pyelftools pycryptodomex
++
+diff --git a/packages/apps/security/security.mk b/packages/apps/security/security.mk
+index c457c2f..03dff33 100644
+--- a/packages/apps/security/security.mk
++++ b/packages/apps/security/security.mk
+@@ -126,7 +126,7 @@ endif
+ 
+ 
+ 
+-optee: optee_os optee_client optee_test
++optee: optee_os optee_client optee_test ftpm
+ 
+ .PHONY: optee_os
+ optee_os:
+@@ -175,7 +175,8 @@ ifeq ($(DESTARCH),arm64)
+ 	 mkdir -p /tmp/bin/ &&  \
+ 	 ln -sf /usr/bin/python2 /tmp/bin/python && \
+ 	 PATH=/tmp/bin/:$(PATH) && \
+-	 cd $(SECDIR)/optee_client && $(MAKE) -j$(JOBS) ARCH=arm64 && mkdir -p $(DESTDIR)/usr/local/lib && \
++	 cd $(SECDIR)/optee_client && $(MAKE) -j$(JOBS) ARCH=arm64 BINDIR=/bin LIBDIR=/lib INCLUDEDIR=/include && \
++	 mkdir -p $(DESTDIR)/usr/local/lib && \
+ 	 ln -sf $(DESTDIR)/lib/libteec.so $(DESTDIR)/usr/local/lib/libteec.so && \
+ 	 $(call fbprint_d,"optee_client")
+ endif
+@@ -197,7 +198,7 @@ ifeq ($(DESTARCH),arm64)
+ 	 PATH=/tmp/bin/:$(PATH) && \
+ 	 cd $(SECDIR)/optee_test && $(MAKE) CFG_ARM64=y OPTEE_CLIENT_EXPORT=$(DESTDIR) \
+ 	 TA_DEV_KIT_DIR=$(FBDIR)/packages/apps/security/optee_os/out/arm-plat-ls/export-ta_arm64 && \
+-	 mkdir -p $(DESTDIR)/lib/optee_armtz && \
++	 mkdir -p $(DESTDIR)/lib/optee_armtz && mkdir -p $(DESTDIR)/bin && \
+ 	 cp $(FBDIR)/packages/apps/security/optee_test/out/ta/*/*.ta $(DESTDIR)/lib/optee_armtz && \
+ 	 cp $(FBDIR)/packages/apps/security/optee_test/out/xtest/xtest $(DESTDIR)/bin && \
+ 	 $(call fbprint_d,"optee_test")
+@@ -207,6 +208,24 @@ else
+ endif
+ 
+ 
++.PHONY: ftpm
++ftpm:
++ifeq ($(CONFIG_APP_OPTEE), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = mate -o $(DISTROSCALE) = lite ] && exit || \
++	 $(call fbprint_b,"ftpm") && $(call fetch-git-tree,ftpm,apps/security) && \
++	 if [ ! -d $(FBDIR)/packages/apps/security/optee_os/out/arm-plat-ls/export-ta_arm64 ]; then flex-builder -c optee_os -a $(DESTARCH) -m $(MACHINE); fi && \
++	 export TA_DEV_KIT_DIR=$(FBDIR)/packages/apps/security/optee_os/out/arm-plat-ls/export-ta_arm64 && \
++	 TA_CPU=cortex-a53 CROSS_COMPILE=aarch64-linux-gnu- $(MAKE) -C $(FBDIR)/packages/apps/security/ftpm/Samples/ARM32-FirmwareTPM/optee_ta/fTPM \
++	 O=$(FBDIR)/packages/apps/security/ftpm/build CFLAGS="$(CFLAGS) -Wno-expansion-to-defined" && \
++	 mkdir -p $(DESTDIR)/lib/optee_armtz && \
++	 cp $(FBDIR)/packages/apps/security/ftpm/build/bc50d971-d4c9-42c4-82cb-343fb7f37896.ta $(DESTDIR)/lib/optee_armtz && \
++	 $(call fbprint_d,"ftpm")
++endif
++else
++	@$(call fbprint_w,INFO: CONFIG_APP_OPTEE is not enabled by default in configs/$(CONFIGLIST))
++endif
++
+ 
+ security_repo_fetch:
+ 	@echo -e "\nfetch security repositories: $(SECURITY_REPO_LIST)"
+-- 
+2.17.1
+

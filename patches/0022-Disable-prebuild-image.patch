@@ -1,0 +1,39 @@
+From 4a6ce4f93854723e0ceb3f5103f9934ad19217df Mon Sep 17 00:00:00 2001
+From: Mikalai Ramanovich <mikalai.ramanovich@edality.by>
+Date: Tue, 1 Sep 2020 10:50:40 +0300
+Subject: [PATCH] Disable prebuild image
+
+---
+ configs/trustbox.cfg             | 2 +-
+ configs/ubuntu/packages_trustbox | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/configs/trustbox.cfg b/configs/trustbox.cfg
+index b8ca24e..ad432ef 100644
+--- a/configs/trustbox.cfg
++++ b/configs/trustbox.cfg
+@@ -72,7 +72,7 @@ BUILD_BUILDROOT_RFS=n
+ UPDATE_REPO_PER_COMMIT=n
+ UPDATE_REPO_PER_TAG=y
+ INSTALL_FLASH_IMAGES=n
+-FETCH_PREBUILT_LSDK_RFS=y
++FETCH_PREBUILT_LSDK_RFS=n
+ DEFAULT_PACKAGES_PATH=$FBDIR/packages
+ DEFAULT_OUT_PATH=$FBDIR/build
+ 
+diff --git a/configs/ubuntu/packages_trustbox b/configs/ubuntu/packages_trustbox
+index e1ce2ec..1c2265f 100644
+--- a/configs/ubuntu/packages_trustbox
++++ b/configs/ubuntu/packages_trustbox
+@@ -7,7 +7,7 @@ additional_main_packages_list="apt apt-utils git gcc vim wget make build-essenti
+  openssh-server openssh-client tcpdump vlan ifenslave linux-tools-generic tftp-hpa tftpd-hpa
+  strace debootstrap mdadm vsftpd telnet sysstat rdate initramfs-tools mtd-utils dosfstools
+  net-tools iputils-ping hdparm psmisc keyutils python-numpy iw wpasupplicant hostapd bluez
+- docker.io rng-tools"
++ rng-tools libnl-genl-3-dev lua5.3-dev"
+ 
+ # for devel userland gathered packages from universe/multiverse/restricted besides main repo
+ additional_devel_packages_list="makedev tree lxc lxd virt-manager lm-sensors i2c-tools fio rt-tests
+-- 
+2.17.1
+
