@@ -1,0 +1,67 @@
+From 7cd1149f107e5fa6afec0bd76e9bdf3585a04469 Mon Sep 17 00:00:00 2001
+From: Mikalai Ramanovich <mikalai.ramanovich@edality.by>
+Date: Thu, 10 Sep 2020 17:14:50 +0300
+Subject: [PATCH] Add firmwares to rfs image
+
+---
+ packages/firmware/u-boot.mk |  5 ++++-
+ tools/flex-builder          | 13 ++++++++++++-
+ 2 files changed, 16 insertions(+), 2 deletions(-)
+
+diff --git a/packages/firmware/u-boot.mk b/packages/firmware/u-boot.mk
+index 717e1bc..3f7f0f0 100644
+--- a/packages/firmware/u-boot.mk
++++ b/packages/firmware/u-boot.mk
+@@ -30,6 +30,8 @@ else
+ 	@$(call fbprint_b,"uboot for $(MACHINE)")
+ 	@if [ $(MACHINE) = ls2088ardb -o $(MACHINE) = ls2088aqds ]; then \
+ 	     brdmsk=`echo $(MACHINE)* | sed s/88/8?/`; \
++	 elif [ $(MACHINE) = trustbox ]; then \
++             brdmsk=trustbox*; \
+ 	 elif echo $(MACHINE) | grep -q ^[p,t,P,T].*; then \
+ 	     brdmsk=*`tr '[a-z]' '[A-Z]' <<< $(MACHINE)`*; \
+ 	 elif [ $(MACHINE) = ls1088ardb_pb ]; then \
+@@ -89,6 +91,7 @@ define build-uboot-target
+              ./imx_scfw.bin --auto-accept && mv `basename -s .bin $(imx_scfw_bin_url)` imx_scfw && rm -f imx_scfw.bin; \
+ 	fi && \
+ 	if echo $1 | grep -qE 'ls1021a|^mx';  then export ARCH=arm; export CROSS_COMPILE=arm-linux-gnueabihf-; dtbstr=-dtb; \
++	elif echo $1 | grep -qE '^trustbox'; then export ARCH=arm64;export CROSS_COMPILE=aarch64-linux-gnu-; dtbstr=-dtb; \
+ 	elif echo $1 | grep -q ^[p,t,P,T].*;  then export ARCH=powerpc; export CROSS_COMPILE=powerpc-linux-; \
+ 	     if [ ! -f $(FBOUTDIR)/rfs/rootfs_buildroot_ppc32_tiny/host/bin/powerpc-linux-gcc ]; then \
+ 		 flex-builder -i mktoolchain -a ppc32 -f $(CONFIGLIST); fi; \
+@@ -101,7 +104,7 @@ define build-uboot-target
+ 	if [ ! -d $$opdir ]; then mkdir -p $$opdir; fi &&  \
+ 	$(call fbprint_n,"config = $1") && if [ ! -f $$opdir/.config ]; then $(MAKE) -C $(UBOOT_TREE) $1 O=$$opdir; fi && \
+ 	$(MAKE) -C $(UBOOT_TREE) -j$(JOBS) O=$$opdir && \
+-	if echo $1 | grep -iqE 'sdcard|nand'; then \
++	if echo $1 | grep -iqE 'qspi|sdcard|nand'; then \
+ 	   if [ -f $$opdir/u-boot-with-spl-pbl.bin ]; then \
+ 	       srcbin=u-boot-with-spl-pbl.bin; \
+ 	   else \
+diff --git a/tools/flex-builder b/tools/flex-builder
+index 4ea78eb..88d5f43 100755
+--- a/tools/flex-builder
++++ b/tools/flex-builder
+@@ -1290,7 +1290,18 @@ merge_components() {
+ 	[ -h $RFSDIR/lib/modules ] && sudo rm $RFSDIR/lib/modules
+ 	sudo cp -fa $FBDIR/build/linux/$KERNEL_TREE/$DESTARCH/$SOCFAMILY/lib $RFSDIR/
+ 
+-	flex-builder -c ppa -m trustbox
++	sudo cp -f $FBDIR/build/firmware/pfe_bin/ls1012a/u-boot/pfe_fw_sbl.itb $RFSDIR/
++
++	if [ ! -f $FBDIR/build/firmware/ppa-generic/trustbox/ppa.itb ]; then 
++            flex-builder -c ppa -m trustbox
++	fi
++	sudo cp -f $FBDIR/build/firmware/ppa-generic/trustbox/ppa.itb $RFSDIR/
++
++	if [ ! -f $FBDIR/build/firmware/u-boot/trustbox/uboot_trustbox_qspi.bin ]; then
++            flex-builder -c uboot -m trustbox -b qspi
++	fi
++
++	sudo cp -f $FBDIR/build/firmware/u-boot/trustbox/uboot_trustbox_qspi.bin $RFSDIR/u-boot-with-pbl.bin
+ 
+         #install RTL8723BU firmware to $RFSDIR/lib/firmware/
+         if [ ! -f $FBDIR/build/linux/$KERNEL_TREE/$DESTARCH/$SOCFAMILY/lib/firmware/rtl_bt/rtl8723b_fw.bin  ]; then
+-- 
+2.17.1
+

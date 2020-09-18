@@ -1,0 +1,77 @@
+From 9c9a174d150250fd54526222978e573d68396a68 Mon Sep 17 00:00:00 2001
+From: Mikalai Ramanovich <mikalai.ramanovich@edality.by>
+Date: Thu, 3 Sep 2020 11:40:23 +0300
+Subject: [PATCH] Add OpenEnclave SDK
+
+---
+ configs/trustbox.cfg               |  4 +++-
+ packages/apps/security/security.mk | 31 ++++++++++++++++++++++++++++++
+ 2 files changed, 34 insertions(+), 1 deletion(-)
+
+diff --git a/configs/trustbox.cfg b/configs/trustbox.cfg
+index ad432ef..1411e91 100644
+--- a/configs/trustbox.cfg
++++ b/configs/trustbox.cfg
+@@ -56,7 +56,7 @@ CONFIG_APP_LIBPKCS11=n
+ CONFIG_APP_SECURE_OBJ=n
+ CONFIG_APP_EDGESCALE=n
+ CONFIG_APP_AZURE_IOTEDGE=y
+-
++CONFIG_APP_OPENENCLAVE_SDK=y
+ 
+ # set default build options for auto build
+ CONFIG_EDGESCALE_SECURE_MODE=n
+@@ -249,6 +249,8 @@ optee_client_repo_commit=4e91c54a6384f7975779d61d88c8da1a5e0dd799
+ optee_client_repo_url=https://github.com/ms-iot/optee_client.git
+ optee_test_repo_commit=40aacb6dc33bbf6ee329f40274bfe7bb438bbf53
+ optee_test_repo_url=https://github.com/OP-TEE/optee_test.git
++openenclave_sdk_repo_commit=b829cfaa02381c9388c4db4dd9fff739270e467b
++openenclave_sdk_repo_url=https://github.com/openenclave/openenclave.git
+ ftpm_repo_url=https://github.com/Microsoft/ms-tpm-20-ref.git
+ ftpm_repo_commit=d979cae6db01ea2e57dbce92d700ce1d0edf78fa
+ openstack_nova_repo_url=git://github.com/openstack/nova
+diff --git a/packages/apps/security/security.mk b/packages/apps/security/security.mk
+index 03dff33..828d047 100644
+--- a/packages/apps/security/security.mk
++++ b/packages/apps/security/security.mk
+@@ -227,6 +227,37 @@ else
+ endif
+ 
+ 
++.PHONY: openenclave_sdk
++openenclave_sdk:
++ifeq ($(CONFIG_APP_OPENENCLAVE_SDK), y)
++ifeq ($(DESTARCH),arm64)
++	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = mate -o $(DISTROSCALE) = lite ] && exit || \
++	 $(call fbprint_b,"openenclave_sdk") && $(call fetch-git-tree,openenclave_sdk,apps/security) && \
++	 if [ $(CONFIG_APP_OPTEE) != y ]; then \
++	     $(call fbprint_e,"Please enable CONFIG_APP_OPTEE to y in configs/$(CONFIGLIST)"); exit 1; \
++	 fi && \
++	 if [ ! -d $(FBDIR)/packages/apps/security/optee_os/out/arm-plat-ls ]; then flex-builder -c optee_os -f $(CONFIGLIST); fi && \
++	 if [ ! -f $(DESTDIR)/lib/libteec.so ]; then flex-builder -c optee_client -f $(CONFIGLIST); fi && \
++	 if [ ! -f $(FBDIR)/logs/.oeansibledone ]; then \
++	     pushd $(FBDIR)/packages/apps/security/openenclave_sdk && \
++	     ./scripts/ansible/install-ansible.sh && \
++	     ansible-playbook scripts/ansible/oe-contributors-setup-cross-arm.yml && \
++	     touch $(FBDIR)/logs/.oeansibledone && \
++	     popd; \
++	 fi && \
++	 export TA_DEV_KIT_DIR=$(FBDIR)/packages/apps/security/optee_os/out/arm-plat-ls/export-ta_arm64 && \
++	 mkdir -p $(FBDIR)/packages/apps/security/openenclave_sdk/build && \
++	 pushd $(FBDIR)/packages/apps/security/openenclave_sdk/build && \
++	 cmake ../ -DCMAKE_TOOLCHAIN_FILE=../cmake/arm-cross.cmake -DOE_TA_DEV_KIT_DIR=$(FBDIR)/packages/apps/security/optee_os/out/arm-plat-ls/export-ta_arm64 -DCMAKE_INSTALL_PREFIX:PATH=/opt/openenclave -DCPACK_DEBIAN_PACKAGE_ARCHITECTURE=arm64 && \
++	 $(MAKE) && $(MAKE) install && \
++	 popd
++endif
++else
++	@$(call fbprint_w,INFO: CONFIG_APP_OPENENCLAVE_SDK is not enabled by default in configs/$(CONFIGLIST)) && exit
++endif
++
++
++
+ security_repo_fetch:
+ 	@echo -e "\nfetch security repositories: $(SECURITY_REPO_LIST)"
+ 	@$(call repo-update,fetch,$(SECURITY_REPO_LIST),apps/security)
+-- 
+2.17.1
+

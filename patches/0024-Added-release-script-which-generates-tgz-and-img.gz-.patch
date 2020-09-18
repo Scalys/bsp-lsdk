@@ -1,0 +1,224 @@
+From a4349a0f84bdd55dffe046f1bcb03178d5d36a22 Mon Sep 17 00:00:00 2001
+From: Mikalai Ramanovich <mikalai.ramanovich@edality.by>
+Date: Wed, 9 Sep 2020 17:36:49 +0300
+Subject: [PATCH] Added release script which generates tgz and img.gz, added
+ resize-fs to img.gz image
+
+---
+ configs/ubuntu/packages_trustbox              |  4 +-
+ packages/apps/security/security.mk            |  6 +-
+ packages/rfs/misc/resize-fs/resize-fs         | 45 +++++++++++++++
+ packages/rfs/misc/resize-fs/resize-fs.service | 11 ++++
+ tools/flex-builder                            | 57 +++++++++++++++++++
+ 5 files changed, 118 insertions(+), 5 deletions(-)
+ create mode 100755 packages/rfs/misc/resize-fs/resize-fs
+ create mode 100644 packages/rfs/misc/resize-fs/resize-fs.service
+
+diff --git a/configs/ubuntu/packages_trustbox b/configs/ubuntu/packages_trustbox
+index 1c2265f..802f72f 100644
+--- a/configs/ubuntu/packages_trustbox
++++ b/configs/ubuntu/packages_trustbox
+@@ -7,7 +7,7 @@ additional_main_packages_list="apt apt-utils git gcc vim wget make build-essenti
+  openssh-server openssh-client tcpdump vlan ifenslave linux-tools-generic tftp-hpa tftpd-hpa
+  strace debootstrap mdadm vsftpd telnet sysstat rdate initramfs-tools mtd-utils dosfstools
+  net-tools iputils-ping hdparm psmisc keyutils python-numpy iw wpasupplicant hostapd bluez
+- rng-tools libnl-genl-3-dev lua5.3-dev"
++ rng-tools libnl-genl-3-dev lua5.3-dev gdisk"
+ 
+ # for devel userland gathered packages from universe/multiverse/restricted besides main repo
+ additional_devel_packages_list="makedev tree lxc lxd virt-manager lm-sensors i2c-tools fio rt-tests
+@@ -23,7 +23,7 @@ additional_lite_packages_list="vim wget ethtool zip libxml2-dev libsensors4  rng
+  dosfstools net-tools iputils-ping hdparm psmisc keyutils iw wpasupplicant hostapd bluez
+  autotools-dev libelf-dev libncurses5-dev libnuma-dev libpcap-dev liblzma-dev binutils-dev
+  libedit-dev libssl-dev libsensors4-dev libxml2-dev libnl-3-dev libnl-genl-3-dev libreadline-dev
+- libtinfo-dev dialog"
++ libtinfo-dev dialog gdisk"
+ 
+ # additional dependent packages for openstack-nova if CONFIG_BUILD_OPENSTACK_NOVA is enabled
+ openstack_dependent_packages_list="python-pbr python-sqlalchemy python-decorator python-eventlet
+diff --git a/packages/apps/security/security.mk b/packages/apps/security/security.mk
+index 03dff33..f2f8f55 100644
+--- a/packages/apps/security/security.mk
++++ b/packages/apps/security/security.mk
+@@ -132,7 +132,7 @@ optee: optee_os optee_client optee_test ftpm
+ optee_os:
+ ifeq ($(CONFIG_APP_OPTEE), y)
+ ifeq ($(DESTARCH),arm64)
+-	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = mate -o $(DISTROSCALE) = lite ] && exit || \
++	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = mate ] && exit || \
+ 	 $(call fbprint_b,"optee_os") && $(call fetch-git-tree,optee_os,apps/security) && \
+ 	 if [ $(MACHINE) = all ]; then \
+ 	     for brd in $(LS_MACHINE_LIST); do \
+@@ -170,7 +170,7 @@ endif
+ optee_client:
+ ifeq ($(CONFIG_APP_OPTEE), y)
+ ifeq ($(DESTARCH),arm64)
+-	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = mate -o $(DISTROSCALE) = lite ] && exit || \
++	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = mate ] && exit || \
+ 	 $(call fbprint_b,"optee_client") && $(call fetch-git-tree,optee_client,apps/security) && \
+ 	 mkdir -p /tmp/bin/ &&  \
+ 	 ln -sf /usr/bin/python2 /tmp/bin/python && \
+@@ -212,7 +212,7 @@ endif
+ ftpm:
+ ifeq ($(CONFIG_APP_OPTEE), y)
+ ifeq ($(DESTARCH),arm64)
+-	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = mate -o $(DISTROSCALE) = lite ] && exit || \
++	@[ $(DISTROTYPE) != ubuntu -o $(DISTROSCALE) = mate ] && exit || \
+ 	 $(call fbprint_b,"ftpm") && $(call fetch-git-tree,ftpm,apps/security) && \
+ 	 if [ ! -d $(FBDIR)/packages/apps/security/optee_os/out/arm-plat-ls/export-ta_arm64 ]; then flex-builder -c optee_os -a $(DESTARCH) -m $(MACHINE); fi && \
+ 	 export TA_DEV_KIT_DIR=$(FBDIR)/packages/apps/security/optee_os/out/arm-plat-ls/export-ta_arm64 && \
+diff --git a/packages/rfs/misc/resize-fs/resize-fs b/packages/rfs/misc/resize-fs/resize-fs
+new file mode 100755
+index 0000000..4f26832
+--- /dev/null
++++ b/packages/rfs/misc/resize-fs/resize-fs
+@@ -0,0 +1,45 @@
++#!/bin/sh
++# This script will attempt to resize the partition and filesystem in order to fill the sdcard
++ # Credits to rpi-distro https://github.com/RPi-Distro/raspi-config/
++
++# Get device and partition numbers/names
++ # Root Partition
++  PART_DEV=`findmnt / -o source -n`
++ 
++ # Remove '/dev/' from the name 
++  PART_NAME=`echo $PART_DEV | cut -d "/" -f 3`
++ 
++ # Set just the name of the device, usually mmcblk0
++  DEV_NAME=`echo /sys/block/*/${PART_NAME} | cut -d "/" -f 4`
++
++ # Add /dev/ to device name
++  DEV="/dev/${DEV_NAME}"
++
++ # Get Number of device as single digit integer
++  PART_NUM=`cat /sys/block/${DEV_NAME}/${PART_NAME}/partition`
++
++ # Get size of SDCard (final sector)
++  SECTOR_SIZE=`cat /sys/block/${DEV_NAME}/size`
++
++ # Set the ending sector that the partition should be resized too
++  END_SECTOR=`expr $SECTOR_SIZE - 1`
++
++#growpartfs $PART_DEV
++
++# resize the partition
++# parted command disabled for now. Using sfdisk instead
++sgdisk $DEV -e
++echo ", +" | sfdisk --no-reread -N $PART_NUM $DEV
++
++# reload the partitions in the kernel
++#partprobe
++partx -u $DEV
++
++# resize
++resize2fs $PART_DEV
++
++systemctl disable resize-fs.service
++
++reboot
++
++
+diff --git a/packages/rfs/misc/resize-fs/resize-fs.service b/packages/rfs/misc/resize-fs/resize-fs.service
+new file mode 100644
+index 0000000..d289528
+--- /dev/null
++++ b/packages/rfs/misc/resize-fs/resize-fs.service
+@@ -0,0 +1,11 @@
++[Unit]
++Description=Resize rfs
++
++[Service]
++Type=oneshot
++ExecStart=/usr/local/bin/resize-fs
++RemainAfterExit=true
++
++[Install]
++WantedBy=multi-user.target
++
+diff --git a/tools/flex-builder b/tools/flex-builder
+index 5431b88..4ea78eb 100755
+--- a/tools/flex-builder
++++ b/tools/flex-builder
+@@ -1109,6 +1109,51 @@ convert_rfs_raw_to_ext4() {
+     fbprint_d $rfsname.gz
+ }
+ 
++convert_rfs_raw_to_image() {
++    # $1: $rawrfs
++    [ -z "$1" ] && rawrfs=$FBOUTDIR/rfs/rootfs_${DISTRIB_VERSION}_${DISTROTYPE}_${DISTROSCALE}_${DESTARCH} || rawrfs=$1
++    [ $DISTROSCALE = lite -o $DISTROSCALE = tiny ] && size=2G || size=5G
++    [ -n "$BUILDARG" ] && size=$BUILDARG
++    if [ ! -f $rawrfs/etc/buildinfo ]; then
++        echo $rawrfs not exist, generating it ..
++        flex-builder -i mkrfs -r $DISTROTYPE:lite -a $DESTARCH -f $CONFIGLIST
++    fi
++    local rfsname=${rawrfs##*/}
++    rfsname=$FBOUTDIR/images/$rfsname.img
++    echo Creating $size $rfsname ...
++    fallocate -l $size $rfsname
++    if mount | grep $FBOUTDIR/images/gstrfsmnt; then
++        sudo umount $FBOUTDIR/images/gstrfsmnt
++    fi
++
++    parted -s $rfsname mklabel gpt
++    parted -s $rfsname mkpart "rootfs" ext4 1MiB 100%
++
++    local fl=$(losetup -f)
++
++    losetup -P ${fl} $rfsname
++
++    mkfs.ext4 -F ${fl}p1
++    mkdir -p $FBOUTDIR/images/gstrfsmnt
++    if ! mount | grep $FBOUTDIR/images/gstrfsmnt; then
++        sudo mount ${fl}p1 $FBOUTDIR/images/gstrfsmnt
++    fi
++    sudo cp -a $rawrfs/. $FBOUTDIR/images/gstrfsmnt/
++    sudo cp $FBDIR/packages/rfs/misc/resize-fs/resize-fs $FBOUTDIR/images/gstrfsmnt/usr/local/bin/
++    sudo ln -s /etc/systemd/system/resize-fs.service $FBOUTDIR/images/gstrfsmnt/etc/systemd/system/multi-user.target.wants/resize-fs.service
++    sudo cp $FBDIR/packages/rfs/misc/resize-fs/resize-fs.service $FBOUTDIR/images/gstrfsmnt/etc/systemd/system/
++    if mount | grep $FBOUTDIR/images/gstrfsmnt; then
++        sudo umount $FBOUTDIR/images/gstrfsmnt
++    fi
++    losetup -d ${fl}
++    rm -rf $FBOUTDIR/images/gstrfsmnt
++    echo compressing $rfsname ...
++    gzip -kfq $rfsname 
++    # && rm -f $rfsname
++    fbprint_d $rfsname.gz
++}
++
++
+ pack_distro_rfs() {
+     [ -f $RFSDIR/etc/buildinfo ] || { fbprint_e "$RFSDIR is incomplete"; exit; }
+     if [ $DISTROTYPE = ubuntu -o $DISTROTYPE = debian ]; then
+@@ -1584,6 +1629,14 @@ build_ubuntu_lite() {
+     flex-builder -i rfsraw2ext -r ubuntu:lite:$CODENAME -a $DESTARCH -f $CONFIGLIST
+ }
+ 
++
++build_rfs_release() {
++    flex-builder -i mkrfs -r $DISTROTYPE:$DISTROSCALE -a $DESTARCH -f $CONFIGLIST -B packages_trustbox
++    flex-builder -i merge-component -r $DISTROTYPE:$DISTROSCALE -a $DESTARCH -f $CONFIGLIST
++    flex-builder -i packrfs -r $DISTROTYPE:$DISTROSCALE -a $DESTARCH -f $CONFIGLIST
++    flex-builder -i rfsraw2img -r $DISTROTYPE:$DISTROSCALE -a $DESTARCH -f $CONFIGLIST
++}
++
+ build_rfs_apps() {
+     # $1: imx or layerscape
+ 
+@@ -2546,8 +2599,12 @@ case "$INSTRUCTION" in
+         download_distro_images; exit;;
+     rfsraw2ext)
+ 	convert_rfs_raw_to_ext4; exit;;
++    rfsraw2img)
++	convert_rfs_raw_to_image; exit;;
+     packrfs)
+ 	pack_distro_rfs; exit;;
++    release)
++	build_rfs_release; exit;;
+     packapp|packapps)
+ 	pack_app_components; exit;;
+     mklinux|mkitb)
+-- 
+2.17.1
+
